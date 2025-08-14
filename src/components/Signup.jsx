@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-
 
 const Signup = () => {
     const [email, setEmail] = useState("");
@@ -10,7 +9,24 @@ const Signup = () => {
     const [loading, setLoading] = useState("");
 
     const { session, signUpuser } = useAuth();
+    const navigate = useNavigate();
     console.log(session);
+
+    const handleSignup = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const result = await signUpuser(email, password);
+            if (result.success) {
+                navigate("/dashboard");
+            }
+        } catch (error) {
+            setError("Error creating account: " + error.message);
+            console.error("Signup error:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
 
   return (
     <div className='min-h-screen flex items-center justify-center'>
