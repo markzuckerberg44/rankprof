@@ -16,7 +16,7 @@ export const AuthContextProvider = ({ children }) => {
     // sign in
     const signInUser = async (email, password) => {
         if (!email.endsWith("@alumnos.ucn.cl")) {
-        return { success: false, error: "Solo se permite el correo institucional};
+        return { success: false, error: "Solo se permite el correo institucional"};
         }
         try {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
