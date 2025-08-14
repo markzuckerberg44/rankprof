@@ -2,13 +2,14 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+
 const Signup = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState("");
 
-    const { session } = useAuth();
+    const { session, signUpuser } = useAuth();
     console.log(session);
 
   return (

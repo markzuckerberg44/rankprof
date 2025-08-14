@@ -1,12 +1,42 @@
-# React + Vite
+# Rankprof - React + Supabase Auth
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación de autenticación con React, Vite, Tailwind CSS y Supabase.
 
-Currently, two official plugins are available:
+## Configuración del Proyecto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 1. Instalación
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+### 2. Configuración de Variables de Entorno
+1. Copia el archivo `.env.example` y renómbralo a `.env`
+2. Reemplaza los valores con tus credenciales reales de Supabase:
+   ```
+   VITE_SUPABASE_URL=tu_url_de_supabase
+   VITE_SUPABASE_ANON_KEY=tu_clave_anonima_de_supabase
+   ```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 3. Ejecutar el Proyecto
+```bash
+npm run dev
+```
+
+## Tecnologías Utilizadas
+
+- **React 19** - Framework de frontend
+- **Vite** - Build tool y servidor de desarrollo
+- **Tailwind CSS** - Framework de CSS
+- **Supabase** - Backend como servicio (autenticación y base de datos)
+- **React Router** - Enrutamiento
+
+## Estructura del Proyecto
+
+- `/src/components/` - Componentes de React
+- `/src/context/` - Context providers (AuthContext)
+- `/src/router.jsx` - Configuración de rutas
+- `/.env` - Variables de entorno (NO incluido en git)
+
+## Seguridad
+
+⚠️ **IMPORTANTE**: Nunca subas el archivo `.env` a GitHub. Las llaves de API deben mantenerse privadas.
