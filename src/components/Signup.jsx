@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+
 const Signup = () => {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -11,6 +12,7 @@ const Signup = () => {
 
     const { session, signUpuser } = useAuth();
     const navigate = useNavigate();
+
 
     const handleSignup = async (e) => {
         e.preventDefault();
@@ -22,7 +24,7 @@ const Signup = () => {
             const result = await signUpuser(email, password);
             
             if (result.error) {
-                setError(result.error.message);
+                setError(result.error);
             } else {
                 // Registro exitoso - mostrar mensaje de confirmación
                 setMessage("¡Cuenta creada! Revisa tu email para confirmar tu cuenta.");
