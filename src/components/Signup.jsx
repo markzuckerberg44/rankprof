@@ -22,7 +22,7 @@ const Signup = () => {
             const result = await signUpuser(email, password);
             
             if (result.error) {
-                setError(result.error.message);
+                setError(result.error);
             } else {
                 // Registro exitoso - mostrar mensaje de confirmación
                 setMessage("¡Cuenta creada! Revisa tu email para confirmar tu cuenta.");
