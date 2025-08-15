@@ -12,8 +12,17 @@ export const AuthContextProvider = ({ children }) => {
         if (!email.endsWith("@alumnos.ucn.cl")) {
         return { success: false, error: "Solo se permite el correo institucional"};
         }
+
         const { data, error } = await supabase.auth.signUp({ email, password });
-        return { data, error };
+
+       
+         // Si Supabase no devuelve error pero el usuario ya existía,
+        // puedes verificar con data.user.identities
+        if (data.user && data.user.identities.length === 0) {
+        return { success: false, error: "El correo ya está registrado" };
+        }
+
+        return { success: true, data };
     };
 
     // sign in

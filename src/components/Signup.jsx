@@ -25,7 +25,8 @@ const Signup = () => {
             
             if (result.error) {
                 setError(result.error);
-            } else {
+            }
+            else {
                 // Registro exitoso - mostrar mensaje de confirmación
                 setMessage("¡Cuenta creada! Revisa tu email para confirmar tu cuenta.");
                 // Opcional: redirigir después de unos segundos
