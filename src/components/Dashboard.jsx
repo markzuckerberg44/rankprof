@@ -21,6 +21,14 @@ const Dashboard = () => {
         console.error("Error signing out:", error);
     }
   };
+
+  const handleSendRanking = () => {
+    navigate("/search-ranking");
+  };
+
+  const handleLogoClick = () => {
+    navigate("/dashboard");
+  };
     
   return (
     <div className='min-h-screen text-white' style={{backgroundColor: '#2D2D2D'}}>
@@ -28,7 +36,12 @@ const Dashboard = () => {
         <div className='flex justify-between items-center p-4'>
             {/* Logo */}
             <div className='flex items-center'>
-                <img src={logo} alt="RankProf" className='h-12 w-auto' />
+                <img 
+                    src={logo} 
+                    alt="RankProf" 
+                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200' 
+                    onClick={handleLogoClick}
+                />
             </div>
             
             {/* Menú hamburguesa */}
@@ -85,7 +98,10 @@ const Dashboard = () => {
                     </div>
                 </div>
                 
-                <button className='w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded shadow-lg hover:shadow-xl transition-all duration-200'>
+                <button 
+                    onClick={handleSendRanking}
+                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded shadow-lg hover:shadow-xl transition-all duration-200'
+                >
                     ⭐ Enviar ranking ⭐
                 </button>
                 <h2 className='text-2xl font-thin mb-4 mt-6'>Ver tabla de rankings</h2>
