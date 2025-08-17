@@ -14,6 +14,11 @@ const SearchForRanking = () => {
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [selectedProfesor, setSelectedProfesor] = useState(null);
   const [currentRatingStep, setCurrentRatingStep] = useState(1);
+  const [isUpdatingRating, setIsUpdatingRating] = useState(false);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [existingRatingData, setExistingRatingData] = useState(null);
+  const [showMessagePopup, setShowMessagePopup] = useState(false);
+  const [messagePopupData, setMessagePopupData] = useState({ title: '', message: '', type: 'success' });
   const [ratings, setRatings] = useState({
     personalidad: 0,
     metodo_ensenanza: 0,
@@ -92,15 +97,44 @@ const SearchForRanking = () => {
     navigate("/dashboard");
   };
 
-  const handleProfesorClick = (profesor) => {
+  const handleProfesorClick = async (profesor) => {
     setSelectedProfesor(profesor);
-    setCurrentRatingStep(1);
-    setRatings({
-      personalidad: 0,
-      metodo_ensenanza: 0,
-      responsabilidad: 0
-    });
-    setShowRatingPopup(true);
+    
+    // Verificar si ya existe una calificación para este profesor por este usuario
+    try {
+      const { data: existingRating, error } = await supabase
+        .from('calificaciones')
+        .select('*')
+        .eq('usuario_id', session?.user?.id)
+        .eq('profesor_id', profesor.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error verificando calificación existente:', error);
+        showMessage('Error', 'Error al verificar calificaciones previas', 'error');
+        return;
+      }
+
+      if (existingRating) {
+        // Ya existe una calificación, mostrar popup de confirmación personalizado
+        setExistingRatingData(existingRating);
+        setShowConfirmPopup(true);
+      } else {
+        // No existe calificación previa, inicializar en 0
+        setIsUpdatingRating(false);
+        setRatings({
+          personalidad: 0,
+          metodo_ensenanza: 0,
+          responsabilidad: 0
+        });
+        setCurrentRatingStep(1);
+        setShowRatingPopup(true);
+      }
+
+    } catch (error) {
+      console.error('Error:', error);
+      showMessage('Error', 'Error al verificar calificaciones previas', 'error');
+    }
   };
 
   const handleStarClick = (rating) => {
@@ -139,7 +173,7 @@ const SearchForRanking = () => {
     const currentRating = ratings[currentParam];
     
     if (currentRating === 0) {
-      alert('Por favor selecciona una calificación antes de continuar');
+      showMessage('Rating Requerido', 'Por favor selecciona una calificación antes de continuar', 'warning');
       return;
     }
 
@@ -153,18 +187,60 @@ const SearchForRanking = () => {
 
   const submitRating = async () => {
     try {
-      // Aquí implementarías la lógica para guardar el rating en Supabase
-      console.log('Enviando rating:', {
-        profesor: selectedProfesor,
-        ratings: ratings,
-        usuario: session?.user?.id
-      });
+      // Validar que todos los ratings estén completos
+      if (ratings.personalidad === 0 || ratings.metodo_ensenanza === 0 || ratings.responsabilidad === 0) {
+        showMessage('Ratings Incompletos', 'Todos los ratings deben estar completos', 'warning');
+        return;
+      }
+
+      // Preparar los datos para insertar/actualizar en la tabla calificaciones
+      const ratingData = {
+        usuario_id: session?.user?.id,
+        profesor_id: selectedProfesor.id,
+        personalidad: ratings.personalidad,
+        metodo_ensenanza: ratings.metodo_ensenanza,
+        responsabilidad: ratings.responsabilidad
+      };
+
+      console.log('Datos a enviar:', ratingData);
+
+      let result;
       
-      alert('¡Rating enviado exitosamente!');
+      if (isUpdatingRating) {
+        // Actualizar calificación existente
+        result = await supabase
+          .from('calificaciones')
+          .update({
+            personalidad: ratings.personalidad,
+            metodo_ensenanza: ratings.metodo_ensenanza,
+            responsabilidad: ratings.responsabilidad
+          })
+          .eq('usuario_id', session?.user?.id)
+          .eq('profesor_id', selectedProfesor.id);
+          
+        console.log('Calificación actualizada:', result);
+        showMessage('¡Éxito!', 'Calificación actualizada exitosamente', 'success');
+      } else {
+        // Insertar nueva calificación
+        result = await supabase
+          .from('calificaciones')
+          .insert([ratingData]);
+          
+        console.log('Nueva calificación creada:', result);
+        showMessage('¡Éxito!', 'Rating enviado exitosamente', 'success');
+      }
+
+      if (result.error) {
+        console.error('Error al procesar calificación:', result.error);
+        showMessage('Error', 'Error al procesar el rating: ' + result.error.message, 'error');
+        return;
+      }
+
       closeRatingPopup();
+      
     } catch (error) {
-      console.error('Error enviando rating:', error);
-      alert('Error al enviar el rating');
+      console.error('Error procesando rating:', error);
+      showMessage('Error', 'Error al procesar el rating', 'error');
     }
   };
 
@@ -172,11 +248,45 @@ const SearchForRanking = () => {
     setShowRatingPopup(false);
     setSelectedProfesor(null);
     setCurrentRatingStep(1);
+    setIsUpdatingRating(false);
     setRatings({
       personalidad: 0,
       metodo_ensenanza: 0,
       responsabilidad: 0
     });
+  };
+
+  const handleConfirmUpdate = () => {
+    // El usuario confirma que quiere actualizar
+    setIsUpdatingRating(true);
+    setRatings({
+      personalidad: existingRatingData.personalidad,
+      metodo_ensenanza: existingRatingData.metodo_ensenanza,
+      responsabilidad: existingRatingData.responsabilidad
+    });
+    setShowConfirmPopup(false);
+    setCurrentRatingStep(1);
+    setShowRatingPopup(true);
+  };
+
+  const handleCancelUpdate = () => {
+    // El usuario cancela la actualización
+    setShowConfirmPopup(false);
+    setSelectedProfesor(null);
+    setExistingRatingData(null);
+  };
+
+  const showMessage = (title, message, type = 'success') => {
+    setMessagePopupData({ title, message, type });
+    setShowMessagePopup(true);
+  };
+
+  const closeMessagePopup = () => {
+    setShowMessagePopup(false);
+  };
+
+  const handleCreateProfesor = () => {
+    navigate("/create-profesor");
   };
 
   // Función de búsqueda simple
@@ -454,8 +564,35 @@ const SearchForRanking = () => {
 
                 {/* Mensaje cuando no hay resultados de búsqueda */}
                 {searchTerm && searchResults.length === 0 && !isLoading && (
-                    <div className='text-center py-4'>
-                        <p className='text-gray-400'>No se encontraron profesores</p>
+                    <div className='text-center py-6'>
+                        <div className='bg-gray-800 rounded-lg p-6 border border-gray-600'>
+                            <div className='mb-4'>
+                                <svg className='w-16 h-16 text-gray-500 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
+                                </svg>
+                                <h3 className='text-lg font-medium text-white mb-2'>
+                                    No se encontraron profesores
+                                </h3>
+                                <p className='text-gray-400 mb-4'>
+                                    No pudimos encontrar ningún profesor con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
+                                </p>
+                            </div>
+                            
+                            <div className='space-y-3'>
+                                <p className='text-gray-300 text-sm'>
+                                    ¿No encuentras al profesor que buscas?
+                                </p>
+                                <button 
+                                    onClick={handleCreateProfesor}
+                                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-2'
+                                >
+                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 6v6m0 0v6m0-6h6m-6 0H6'></path>
+                                    </svg>
+                                    <span>Agregar nuevo profesor</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -463,6 +600,86 @@ const SearchForRanking = () => {
                 <p className='text-gray-400 mt-5'>Busca y selecciona un profesor para enviar tu ranking.</p>
             </div>
         </div>
+
+        {/* Popup de Confirmación de Actualización */}
+        {showConfirmPopup && selectedProfesor && existingRatingData && (
+            <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+                <div className='bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 border border-gray-600'>
+                    {/* Header del popup */}
+                    <div className='text-center mb-6'>
+                        <h3 className='text-xl font-bold text-white mb-2'>
+                            Calificación Existente
+                        </h3>
+                        <p className='text-lg text-white font-medium mb-3'>
+                            {selectedProfesor.nombre_apellido}
+                        </p>
+                        <p className='text-yellow-400 text-sm'>
+                            ⚠️ Ya has calificado a este profesor
+                        </p>
+                    </div>
+
+                    {/* Calificaciones actuales */}
+                    <div className='bg-gray-700 rounded-lg p-4 mb-6'>
+                        <h4 className='text-white font-semibold mb-3 text-center'>Tus calificaciones actuales:</h4>
+                        <div className='space-y-2'>
+                            <div className='flex justify-between items-center'>
+                                <span className='text-gray-300'>Personalidad:</span>
+                                <div className='flex'>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <span key={star} className={`text-lg ${star <= existingRatingData.personalidad ? 'text-yellow-400' : 'text-gray-600'}`}>
+                                            ⭐
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className='flex justify-between items-center'>
+                                <span className='text-gray-300'>Método de Enseñanza:</span>
+                                <div className='flex'>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <span key={star} className={`text-lg ${star <= existingRatingData.metodo_ensenanza ? 'text-yellow-400' : 'text-gray-600'}`}>
+                                            ⭐
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className='flex justify-between items-center'>
+                                <span className='text-gray-300'>Responsabilidad:</span>
+                                <div className='flex'>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <span key={star} className={`text-lg ${star <= existingRatingData.responsabilidad ? 'text-yellow-400' : 'text-gray-600'}`}>
+                                            ⭐
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pregunta de confirmación */}
+                    <div className='text-center mb-6'>
+                        <p className='text-white text-lg font-medium'>
+                            ¿Deseas cambiar tus calificaciones?
+                        </p>
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div className='flex space-x-3'>
+                        <button
+                            onClick={handleCancelUpdate}
+                            className='flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
+                        >
+                            No, mantener
+                        </button>
+                        <button
+                            onClick={handleConfirmUpdate}
+                            className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
+                        >
+                            Sí, cambiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Popup de Rating */}
         {showRatingPopup && selectedProfesor && (
@@ -600,7 +817,65 @@ const SearchForRanking = () => {
                             onClick={handleNextStep}
                             className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200'
                         >
-                            {currentRatingStep === 3 ? 'Enviar Rating' : 'Siguiente'}
+                            {currentRatingStep === 3 
+                                ? (isUpdatingRating ? 'Actualizar Rating' : 'Enviar Rating')
+                                : 'Siguiente'
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Popup de Mensaje Personalizado */}
+        {showMessagePopup && (
+            <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+                <div className='bg-gray-800 rounded-lg p-6 w-full max-w-sm mx-4 border border-gray-600'>
+                    {/* Ícono según el tipo */}
+                    <div className='text-center mb-4'>
+                        {messagePopupData.type === 'success' && (
+                            <div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+                                <svg className='w-8 h-8 text-green-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M5 13l4 4L19 7'></path>
+                                </svg>
+                            </div>
+                        )}
+                        {messagePopupData.type === 'error' && (
+                            <div className='w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+                                <svg className='w-8 h-8 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M6 18L18 6M6 6l12 12'></path>
+                                </svg>
+                            </div>
+                        )}
+                        {messagePopupData.type === 'warning' && (
+                            <div className='w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4'>
+                                <svg className='w-8 h-8 text-yellow-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z'></path>
+                                </svg>
+                            </div>
+                        )}
+                        
+                        <h3 className='text-xl font-bold text-white mb-2'>
+                            {messagePopupData.title}
+                        </h3>
+                        <p className='text-gray-300'>
+                            {messagePopupData.message}
+                        </p>
+                    </div>
+
+                    {/* Botón de cerrar */}
+                    <div className='text-center'>
+                        <button
+                            onClick={closeMessagePopup}
+                            className={`px-6 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                                messagePopupData.type === 'success' 
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : messagePopupData.type === 'error'
+                                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                                    : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                            }`}
+                        >
+                            Entendido
                         </button>
                     </div>
                 </div>

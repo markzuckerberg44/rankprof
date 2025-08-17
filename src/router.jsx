@@ -5,6 +5,7 @@ import Signin from "./components/Signin";
 import Dashboard from "./components/Dashboard";
 import ConfirmEmail from "./components/ConfirmEmail";
 import SearchForRanking from "./components/SearchForRanking";
+import CreateProfesor from "./components/CreateProfesor";
 import PrivateRoute from "./components/PrivateRoute";
 
 export const router = createBrowserRouter([
@@ -15,5 +16,7 @@ export const router = createBrowserRouter([
         <Dashboard /> </PrivateRoute> },
     { path: "/search-ranking", element: <PrivateRoute>
         <SearchForRanking /> </PrivateRoute> },
+    { path: "/create-profesor", element: <PrivateRoute>
+        <CreateProfesor /> </PrivateRoute> },
     { path: "/confirm-email", element: <ConfirmEmail /> }
 ]); 
