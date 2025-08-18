@@ -450,7 +450,8 @@ const SearchForRanking = () => {
                 <img 
                     src={logo} 
                     alt="RankProf" 
-                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200' 
+                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200 dropshadow-lg'
+                    style={{ boxShadow: '0 4px 16px 0 rgba(0, 0, 0, 0.8)' }} 
                     onClick={handleLogoClick}
                 />
             </div>
