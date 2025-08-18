@@ -79,7 +79,10 @@ const Signin = () => {
                 <button type='submit' disabled={loading} className='mt-6 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white py-2 px-4 rounded'>
                     {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                 </button>
-                <p className='text-center mt-5 text-gray-400'>Solo correos @alumnos.ucn.cl permitidos</p>
+                <p className='text-center mt-5 text-yellow-400'>Solo correos @alumnos.ucn.cl permitidos</p>
+                <p className='text-sm text-center mt-5 text-white font-medium'>Una producción de Julián Honores, Claudio Monsalve y Diego Ravanal.</p>
+                <p className='text-sm text-center mt-5 text-gray-400 font-thin '>¿Eres profesor y quieres que te eliminemos de la app o consultar 
+                    si apareces en los rankings? <br></br> <a href="mailto:rankprof79@gmail.com">Contáctanos: rankprof79@gmail.com</a></p>
                 {error && <p className='text-red-400 text-center pt-4'>{error}</p>}
                 {message && <p className='text-green-400 text-center pt-4'>{message}</p>}
             </div>
