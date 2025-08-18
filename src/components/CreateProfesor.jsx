@@ -141,6 +141,7 @@ const CreateProfesor = () => {
       {/* Contenido principal */}
       <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
         <div className='max-w-md w-full mt-6'>
+          <p className='font-md mb-4'>Agrega un nuevo profesor (no uses tildes en el nombre)</p>
           <form onSubmit={handleSubmit} className='space-y-4'>
             <input
               type="text"
