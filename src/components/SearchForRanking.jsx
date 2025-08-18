@@ -624,34 +624,28 @@ const SearchForRanking = () => {
                         <h4 className='text-white font-semibold mb-3 text-center'>Tus calificaciones actuales:</h4>
                         <div className='space-y-2'>
                             <div className='flex justify-between items-center'>
-                                <span className='text-gray-300'>Personalidad:</span>
-                                <div className='flex'>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span key={star} className={`text-lg ${star <= existingRatingData.personalidad ? 'text-yellow-400' : 'text-gray-600'}`}>
-                                            ⭐
-                                        </span>
-                                    ))}
-                                </div>
+                <span className='text-gray-300'>Personalidad:</span>
+                <div className='flex'>
+                  {Array.from({length: existingRatingData.personalidad || 0}, (_, i) => (
+                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                  ))}
+                </div>
                             </div>
                             <div className='flex justify-between items-center'>
-                                <span className='text-gray-300'>Método de Enseñanza:</span>
-                                <div className='flex'>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span key={star} className={`text-lg ${star <= existingRatingData.metodo_ensenanza ? 'text-yellow-400' : 'text-gray-600'}`}>
-                                            ⭐
-                                        </span>
-                                    ))}
-                                </div>
+                <span className='text-gray-300'>Método de Enseñanza:</span>
+                <div className='flex'>
+                  {Array.from({length: existingRatingData.metodo_ensenanza || 0}, (_, i) => (
+                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                  ))}
+                </div>
                             </div>
                             <div className='flex justify-between items-center'>
-                                <span className='text-gray-300'>Responsabilidad:</span>
-                                <div className='flex'>
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span key={star} className={`text-lg ${star <= existingRatingData.responsabilidad ? 'text-yellow-400' : 'text-gray-600'}`}>
-                                            ⭐
-                                        </span>
-                                    ))}
-                                </div>
+                <span className='text-gray-300'>Responsabilidad:</span>
+                <div className='flex'>
+                  {Array.from({length: existingRatingData.responsabilidad || 0}, (_, i) => (
+                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                  ))}
+                </div>
                             </div>
                         </div>
                     </div>

@@ -7,16 +7,36 @@ import ConfirmEmail from "./components/ConfirmEmail";
 import SearchForRanking from "./components/SearchForRanking";
 import CreateProfesor from "./components/CreateProfesor";
 import PrivateRoute from "./components/PrivateRoute";
+import AuthCallback from "./components/AuthCallback"; // 👈 NUEVO
 
 export const router = createBrowserRouter([
-    { path: "/", element: <App /> }, 
-    { path: "/signup", element: <Signup /> },
-    { path: "/signin", element: <Signin /> },
-    { path: "/dashboard", element: <PrivateRoute> 
-        <Dashboard /> </PrivateRoute> },
-    { path: "/search-ranking", element: <PrivateRoute>
-        <SearchForRanking /> </PrivateRoute> },
-    { path: "/create-profesor", element: <PrivateRoute>
-        <CreateProfesor /> </PrivateRoute> },
-    { path: "/confirm-email", element: <ConfirmEmail /> }
-]); 
+  { path: "/", element: <App /> },
+  { path: "/signup", element: <Signup /> },
+  { path: "/signin", element: <Signin /> },
+  { path: "/auth/callback", element: <AuthCallback /> }, // 👈 NUEVO
+  {
+    path: "/dashboard",
+    element: (
+      <PrivateRoute>
+        <Dashboard />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/search-ranking",
+    element: (
+      <PrivateRoute>
+        <SearchForRanking />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/create-profesor",
+    element: (
+      <PrivateRoute>
+        <CreateProfesor />
+      </PrivateRoute>
+    ),
+  },
+  { path: "/confirm-email", element: <ConfirmEmail /> },
+]);
