@@ -599,6 +599,7 @@ const SearchForRanking = () => {
 
                 {/* <h2 className='text-2xl font-thin mb-4'>Enviar ranking</h2> */}
                 <p className='text-gray-400 mt-5'>Busca y selecciona un profesor para enviar tu ranking.</p>
+                <p className='text-purple-400 mt-5'>Todo es ANONIMO 🕵️</p>
             </div>
         </div>
 
