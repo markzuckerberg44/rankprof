@@ -228,7 +228,34 @@ const Dashboard = () => {
                   {/* Header con ranking y nombre */}
                   <div className='flex items-center justify-between mb-3'>
                     <div className='flex items-center space-x-3'>
-                      <div className='flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm' style={{ backgroundColor: '#686868' }}>
+                      <div className={  index === 0 ? 
+                        'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-md shadow-yellow-400' : index === 1 ?
+                        'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-md shadow-yellow-400' : index === 2 ? 'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm' : 'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm'} 
+                        style={{
+                          background:
+                            sortOrder === "desc"
+                              ? (index === 0
+                                  ? "linear-gradient(to right, #ffd000ff, #685f14ff)"
+                                  : index === 1
+                                    ? "linear-gradient(to right, #646464ff, #e6e6e6ff)"
+                                    : index === 2
+                                      ? "linear-gradient(to right, #a37621ff, #66503bff)"
+                                      : "#686868")
+                              : sortOrder === "asc"
+                                ? (index === 0
+                                    ? "linear-gradient(to right, #9b2626ff, #ff0000ff)"
+                                    : index === 1
+                                      ? "linear-gradient(to right, #5f1813ff, #9e0f0fff)"
+                                      : index === 2
+                                        ? "linear-gradient(to right, #813421ff, #99460eff)"
+                                        : "#686868")
+                                : "#686868",
+
+                          boxShadow:
+                            sortOrder === "desc" && index === 0
+                              ? "0 0 9px 3px rgba(255, 215, 0, 0.5)"
+                              : "none",
+                        }}>
                         {index + 1}
                       </div>
                       <div>
