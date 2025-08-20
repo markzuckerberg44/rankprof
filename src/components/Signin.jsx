@@ -80,11 +80,11 @@ const Signin = () => {
                     {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
                 </button>
                 <p className='text-center mt-5 text-yellow-400'>Solo correos @alumnos.ucn.cl permitidos</p>
+                {error && <p className='text-red-400 text-center pt-4'>{error}</p>}
+                {message && <p className='text-green-400 text-center pt-4'>{message}</p>}
                 <p className='text-sm text-center mt-5 text-white font-medium'>Hecho por Julián Honores y Claudio Monsalve.</p>
                 <p className='text-sm text-center mt-5 text-gray-400 font-thin '>¿Eres profesor y quieres que te eliminemos de la app o consultar 
                     si apareces en los rankings? <br></br> <a href="mailto:rankprof79@gmail.com">Contáctanos: rankprof79@gmail.com</a></p>
-                {error && <p className='text-red-400 text-center pt-4'>{error}</p>}
-                {message && <p className='text-green-400 text-center pt-4'>{message}</p>}
             </div>
         </form>
     </div>
