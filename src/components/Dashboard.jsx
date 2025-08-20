@@ -11,7 +11,7 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' alto→bajo, 'asc' bajo→alto
   const [searchRanking, setSearchRanking] = useState('');
   const [totalProfesores, setTotalProfesores] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('todos'); // 'todos' | 'top'
+  const [activeFilter, setActiveFilter] = useState('calificados'); // 'todos' | 'top'
 
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
@@ -297,20 +297,20 @@ const Dashboard = () => {
             </span>
             {/* Badges */}
             <button
-              onClick={() => setActiveFilter('todos')}
-              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
-                activeFilter === 'todos' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
-              }`}
-            >
-              Todos
-            </button>
-            <button
               onClick={() => setActiveFilter('top')}
               className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
                 activeFilter === 'top' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
               }`}
             >
               Los más calificados
+            </button>
+            <button
+              onClick={() => setActiveFilter('todos')}
+              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
+                activeFilter === 'todos' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
+              }`}
+            >
+              Todos
             </button>
           </div>
 
