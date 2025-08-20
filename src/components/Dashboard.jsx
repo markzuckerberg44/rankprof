@@ -4,108 +4,202 @@ import { useNavigate } from 'react-router-dom'
 import logo from '../assets/smallwhitelogo.png'
 import { supabase } from '../supabaseClient'
 
-
 const Dashboard = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [profesorPromedios, setProfesorPromedios] = useState([]);
+  const [profesoresUI, setProfesoresUI] = useState([]); // datos normalizados para render
   const [isLoading, setIsLoading] = useState(false);
-  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' para alto a bajo, 'asc' para bajo a alto
-  const [searchRanking, setSearchRanking] = useState("");
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' alto→bajo, 'asc' bajo→alto
+  const [searchRanking, setSearchRanking] = useState('');
+  const [totalProfesores, setTotalProfesores] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('todos'); // 'todos' | 'top'
+
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Cargar profesores con promedios al montar el componente
+  // ===== Efectos: cargar según filtro y orden/búsqueda =====
   useEffect(() => {
-    loadProfesorPromedios();
-  }, [sortOrder]);
+    if (activeFilter === 'todos') {
+      loadDesdePromedios();
+    } else {
+      loadDesdeRanked();
+    }
+  }, [activeFilter, sortOrder, searchRanking]);
 
-  const loadProfesorPromedios = async () => {
+  // ====== Carga: modo "Todos" (profesor_promedios) ======
+  const loadDesdePromedios = async () => {
     setIsLoading(true);
     try {
-      // Paso 1: Consulta básica a profesor_promedios
+      // 1) Traer promedios
       const { data: promedios, error: promediosError } = await supabase
         .from('profesor_promedios')
         .select('*');
 
-      if (promediosError) {
-        console.error('Error al obtener promedios:', promediosError);
-        setProfesorPromedios([]);
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
         return;
       }
 
-      if (!promedios || promedios.length === 0) {
-        setProfesorPromedios([]);
-        return;
-      }
-
-      // Paso 2: Ordenar manualmente
-      const promediosOrdenados = [...promedios].sort((a, b) => {
-        if (sortOrder === 'asc') {
-          return (a.puntaje_ponderado || 0) - (b.puntaje_ponderado || 0);
-        } else {
-          return (b.puntaje_ponderado || 0) - (a.puntaje_ponderado || 0);
-        }
+      // 2) Orden por puntaje_ponderado
+      const ordenados = [...lista].sort((a, b) => {
+        const A = a.puntaje_ponderado ?? 0;
+        const B = b.puntaje_ponderado ?? 0;
+        return sortOrder === 'asc' ? A - B : B - A;
       });
 
-      // Paso 3: Obtener nombres de profesores
+      // 3) Traer nombres
       const { data: profesores, error: profesoresError } = await supabase
         .from('profesores')
         .select('id, nombre_apellido');
 
-      if (profesoresError) {
-        console.error('Error al obtener profesores:', profesoresError);
-        setProfesorPromedios([]);
-        return;
-      }
+      if (profesoresError) throw profesoresError;
 
-      // Paso 4: Contar ratings de cada profesor desde la tabla calificaciones
-      const profesorIds = promediosOrdenados.map(p => p.profesor_id);
+      // 4) Conteo de ratings
+      const ids = ordenados.map(p => p.profesor_id);
       const { data: calificaciones, error: calificacionesError } = await supabase
         .from('calificaciones')
         .select('profesor_id')
-        .in('profesor_id', profesorIds);
+        .in('profesor_id', ids);
 
       if (calificacionesError) {
         console.error('Error al obtener calificaciones:', calificacionesError);
       }
 
-      // Contar cuántas veces aparece cada profesor_id
       const conteoRatings = {};
-      if (calificaciones) {
-        calificaciones.forEach(cal => {
-          conteoRatings[cal.profesor_id] = (conteoRatings[cal.profesor_id] || 0) + 1;
-        });
-      }
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
 
-      // Paso 5: Combinar datos
-      const resultado = promediosOrdenados.map(promedio => {
-        const profesor = profesores?.find(p => {
-          return String(p.id) === String(promedio.profesor_id);
-        });
+      // 5) Normalizar + fallback de posición si no existe
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+      const normalizados = ordenados.map((row, idx) => {
+        const info = profMap.get(String(row.profesor_id));
+        const pos = row.pos_ranking ?? (idx + 1);
         return {
-          ...promedio,
-          total_ratings: conteoRatings[promedio.profesor_id] || 0,
-          profesores: profesor ? {
-            nombre_apellido: profesor.nombre_apellido,
-            departamento: null
-          } : {
-            nombre_apellido: 'Profesor no encontrado',
-            departamento: null
-          }
+          profesor_id: row.profesor_id,
+          pos_ranking: pos,
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo_ensenanza ?? row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
         };
       });
 
-      setProfesorPromedios(resultado);
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
 
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
     } catch (error) {
-      console.error('Error al cargar datos:', error);
-      setProfesorPromedios([]);
+      console.error('Error en modo "Todos":', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ====== Carga: modo "Los más calificados" (profesores_ranked) ======
+  const loadDesdeRanked = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer ranked
+      const { data: ranked, error: rankedError } = await supabase
+        .from('profesores_ranked')
+        .select('id_profesor, ranked_pos, prom_personalidad, prom_metodo_ensenanza, prom_responsabilidad, puntaje_ponderado');
+
+      if (rankedError) throw rankedError;
+
+      const lista = ranked ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Ordenar por puntaje_ponderado (mantenemos misma UX)
+      const ordenados = [...lista].sort((a, b) => {
+        const A = a.puntaje_ponderado ?? 0;
+        const B = b.puntaje_ponderado ?? 0;
+        return sortOrder === 'asc' ? A - B : B - A;
+      });
+
+      // 3) Traer nombres
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 4) Conteo de ratings (AQUÍ ESTABA EL PROBLEMA: ahora sí contamos)
+      const ids = ordenados.map(p => p.id_profesor);
+      const { data: califs, error: califsError } = await supabase
+        .from('calificaciones')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (califsError) {
+        console.error('Error al obtener calificaciones (top):', califsError);
+      }
+
+      const ratingsCount = {};
+      (califs ?? []).forEach(c => {
+        ratingsCount[c.profesor_id] = (ratingsCount[c.profesor_id] || 0) + 1;
+      });
+
+      // 5) Normalizar con POSICIÓN desde ranked_pos
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.id_profesor));
+        return {
+          profesor_id: row.id_profesor,
+          pos_ranking: row.ranked_pos, // posición de la tabla ranked
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo_ensenanza,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: ratingsCount[row.id_profesor] || 0, // ← ahora sí mostramos el total
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Los más calificados":', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====== Otros handlers ======
   const handleSortChange = (e) => {
     setSortOrder(e.target.checked ? 'asc' : 'desc');
   };
@@ -113,21 +207,21 @@ const Dashboard = () => {
   const handleSignOut = async (e) => {
     e.preventDefault();
     try {
-        await signOut();
-        navigate("/signin");
+      await signOut();
+      navigate('/signin');
     } catch (error) {
-        console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
     }
   };
 
   const handleSendRanking = () => {
-    navigate("/search-ranking");
+    navigate('/search-ranking');
   };
 
   const handleLogoClick = () => {
-    navigate("/dashboard");
+    navigate('/dashboard');
   };
-    
+
   return (
     <div className='min-h-screen text-white' style={{backgroundColor: '#2D2D2D'}}>
       {/* Header con logo y menú */}
@@ -145,33 +239,41 @@ const Dashboard = () => {
         <div className='relative'>
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className='flex flex-col justify-center items-center w-10 h-10 space-y-1 focus:outline-none hover:bg-gray-700 rounded-md p-2 transition-colors duration-200'
+            className='flex flex-col justify-center items-center w-10 h-10 space-y-1 focus:outline-none hover:bg-gray-700 rounded-md p-2 transition-colors duración-200'
           >
             <div className='w-6 h-1 bg-white rounded-full'></div>
             <div className='w-6 h-1 bg-white rounded-full'></div>
             <div className='w-6 h-1 bg-white rounded-full'></div>
           </button>
-          {/* Menú desplegable */}
+          {/* Overlay para cerrar menú al hacer clic fuera */}
           {isMenuOpen && (
-            <div className='absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-lg z-10 border border-gray-700'>
-              <div className='p-4'>
-                {/* Saludo al usuario */}
-                <div className='mb-4 pb-4 border-b border-gray-600'>
-                  <p className='text-sm text-gray-300 mb-1'>Bienvenido</p>
-                  <p className='text-white font-medium text-sm break-all'>{session?.user?.email}</p>
+            <>
+              <div
+                className='fixed inset-0 z-10'
+                onClick={() => setIsMenuOpen(false)}
+                style={{ touchAction: 'manipulation' }}
+              />
+              <div className='absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-lg z-20 border border-gray-700'>
+                <div className='p-4'>
+                  {/* Saludo al usuario */}
+                  <div className='mb-4 pb-4 border-b border-gray-600'>
+                    <p className='text-sm text-gray-300 mb-1'>Bienvenido</p>
+                    <p className='text-white font-medium text-sm break-all'>{session?.user?.email}</p>
+                  </div>
+                  {/* Opción cerrar sesión */}
+                  <button 
+                    onClick={handleSignOut}
+                    className='w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transición-colors duración-200 text-sm'
+                  >
+                    Cerrar sesión
+                  </button>
                 </div>
-                {/* Opción cerrar sesión */}
-                <button 
-                  onClick={handleSignOut}
-                  className='w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm'
-                >
-                  Cerrar sesión
-                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
+
       {/* Contenido principal */}
       <div className='flex flex-col items-center px-0' style={{height: 'calc(100vh - 80px)', overflow: 'hidden'}}>
         <div className='max-w-md w-full text-center'>
@@ -184,6 +286,34 @@ const Dashboard = () => {
             </button>
           </div>
           <h2 className='text-2xl font-thin mb-4 mt-6'>Tabla de rankings</h2>
+
+          {/* Filtros y badges */}
+          <div className='flex items-center justify-center gap-4 mb-6'>
+            {/* Icono de filtro */}
+            <span className='text-gray-400 text-2xl'>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z" />
+              </svg>
+            </span>
+            {/* Badges */}
+            <button
+              onClick={() => setActiveFilter('todos')}
+              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
+                activeFilter === 'todos' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setActiveFilter('top')}
+              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
+                activeFilter === 'top' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
+              }`}
+            >
+              Los más calificados
+            </button>
+          </div>
+
           {/* Switch Toggle Component */}
           <div className='flex justify-center mb-6'>
             <label htmlFor="filter" className="switch" aria-label="Toggle Filter">
@@ -191,13 +321,14 @@ const Dashboard = () => {
                 type="checkbox" 
                 id="filter" 
                 checked={sortOrder === 'asc'}
-                onChange={handleSortChange}
+                onChange={e => setSortOrder(e.target.checked ? 'asc' : 'desc')}
               />
               <span>De alto a bajo</span>
               <span>De bajo a alto</span>
             </label>
           </div>
-          {/* Barra de búsqueda para rankings */}
+
+          {/* Barra de búsqueda */}
           <div className='mb-6 flex justify-center px-4'>
             <input
               type='text'
@@ -208,95 +339,81 @@ const Dashboard = () => {
             />
           </div>
         </div>
-        {/* Lista de profesores con rankings */}
+
+        {/* Lista de profesores */}
         {isLoading ? (
           <div className='text-center py-4'>
             <p className='text-gray-400'>Cargando rankings...</p>
           </div>
         ) : (
           <div className='w-full h-full flex-1 overflow-y-auto flex flex-col gap-6 scrollbar-hide px-4 py-6' style={{scrollSnapType: 'y mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none'}}>
-            {profesorPromedios
-              .filter(profesor => {
-                const nombre = profesor.profesores?.nombre_apellido?.toLowerCase() || '';
-                return nombre.includes(searchRanking.toLowerCase());
-              })
-              .map((profesor, index) => (
-                <div 
-                  key={profesor.profesor_id} 
-                  className='bg-zinc-800 rounded-lg p-4 border border-zinc-600' style={{ scrollSnapAlign: 'start' }}
-                >
-                  {/* Header con ranking y nombre */}
-                  <div className='flex items-center justify-between mb-3'>
-                    <div className='flex items-center space-x-3'>
-                      <div className={  index === 0 ? 
-                        'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-md shadow-yellow-400' : index === 1 ?
-                        'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm shadow-md shadow-yellow-400' : index === 2 ? 'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm' : 'flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-sm'} 
-                        style={{
-                          background:
-                            sortOrder === "desc"
-                              ? (index === 0
-                                  ? "linear-gradient(to right, #ffd000ff, #685f14ff)"
-                                  : index === 1
-                                    ? "linear-gradient(to right, #646464ff, #e6e6e6ff)"
-                                    : index === 2
-                                      ? "linear-gradient(to right, #a37621ff, #66503bff)"
-                                      : "#686868")
-                              : sortOrder === "asc"
-                                ? (index === 0
-                                    ? "linear-gradient(to right, #9b2626ff, #ff0000ff)"
-                                    : index === 1
-                                      ? "linear-gradient(to right, #5f1813ff, #9e0f0fff)"
-                                      : index === 2
-                                        ? "linear-gradient(to right, #813421ff, #99460eff)"
-                                        : "#686868")
-                                : "#686868",
-
-                          boxShadow:
-                            sortOrder === "desc" && index === 0
-                              ? "0 0 9px 3px rgba(255, 215, 0, 0.5)"
-                              : "none",
-                        }}>
-                        {index + 1}
-                      </div>
-                      <div>
-                        <h3 className='text-white font-medium text-lg'>
-                          {profesor.profesores?.nombre_apellido || `Profesor ID: ${profesor.profesor_id}`}
-                        </h3>
-                        <p className='text-gray-400 text-sm'>
-                          {profesor.total_ratings || 0} rating{(profesor.total_ratings || 0) !== 1 ? 's' : ''}
-                        </p>
-                      </div>
+            {profesoresUI.map((profesor) => (
+              <div 
+                key={profesor.profesor_id} 
+                className='bg-zinc-800 rounded-lg p-4 border border-zinc-600' style={{ scrollSnapAlign: 'start' }}
+              >
+                {/* Header con ranking y nombre */}
+                <div className='flex items-center justify-between mb-3'>
+                  <div className='flex items-center space-x-3'>
+                    <div
+                      className={
+                        profesor.pos_ranking === 1
+                        ? "w-10 h-10 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-700 flex items-center justify-center"
+                        : profesor.pos_ranking === 2
+                        ? "w-10 h-10 rounded-full  bg-gradient-to-r from-gray-400 to-gray-700 flex items-center justify-center"
+                        : profesor.pos_ranking === 3
+                        ? "w-10 h-10 rounded-full  bg-gradient-to-r from-amber-600 to-yellow-900 flex items-center justify-center"
+                        : profesor.pos_ranking === totalProfesores
+                        ? "w-10 h-10 rounded-full  bg-gradient-to-r from-red-600 to-red-900 flex items-center justify-center"
+                        : profesor.pos_ranking === totalProfesores - 1
+                        ? "w-10 h-10 rounded-full  bg-gradient-to-r from-red-600 to-red-800 flex items-center justify-center"
+                        : profesor.pos_ranking === totalProfesores - 2
+                        ? "w-10 h-10 rounded-full  bg-gradient-to-r from-red-600 to-red-800 flex items-center justify-center" 
+                        : "w-10 h-10 rounded-full  bg-gray-600 flex items-center justify-center"
+                      }
+                    >
+                      {profesor.pos_ranking ?? '—'}
                     </div>
-                    <div className='text-right'>
-                      <div className='text-yellow-400 font-bold text-lg'>
-                        {profesor.puntaje_ponderado?.toFixed(1) || 'N/A'}
-                      </div>
-                      <p className='text-gray-400 text-xs'>Puntaje total</p>
+                    <div>
+                      <h3 className='text-white font-medium text-lg'>
+                        {profesor.profesores?.nombre_apellido || `Profesor ID: ${profesor.profesor_id}`}
+                      </h3>
+                      <p className='text-gray-400 text-sm'>
+                        {profesor.total_ratings || 0} rating{(profesor.total_ratings || 0) !== 1 ? 's' : ''}
+                      </p>
                     </div>
                   </div>
-                  {/* Promedios por categoría */}
-                  <div className='grid grid-cols-3 gap-2'>
-                    <div className='text-center rounded-lg p-3'>
-                      <div className='text-white font-semibold'>
-                        {profesor.prom_personalidad?.toFixed(1) || 'N/A'}
-                      </div>
-                      <p className='text-gray-400 text-xs mt-1'>Personalidad</p>
+                  <div className='text-right'>
+                    <div className='text-yellow-400 font-bold text-lg'>
+                      {profesor.puntaje_ponderado?.toFixed(1) || 'N/A'}
                     </div>
-                    <div className='text-center rounded-lg p-3'>
-                      <div className='text-white font-semibold'>
-                        {profesor.prom_metodo_ensenanza?.toFixed(1) || profesor.prom_metodo?.toFixed(1) || 'N/A'}
-                      </div>
-                      <p className='text-gray-400 text-xs mt-1'>Método</p>
-                    </div>
-                    <div className='text-center rounded-lg p-3'>
-                      <div className='text-white font-semibold'>
-                        {profesor.prom_responsabilidad?.toFixed(1) || 'N/A'}
-                      </div>
-                      <p className='text-gray-400 text-xs mt-1'>Responsabilidad</p>
-                    </div>
+                    <p className='text-gray-400 text-xs'>Puntaje total</p>
                   </div>
                 </div>
-              ))}
+
+                {/* Promedios por categoría */}
+                <div className='grid grid-cols-3 gap-2'>
+                  <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                      {profesor.prom_personalidad?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Personalidad</p>
+                  </div>
+                  <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                      {profesor.prom_metodo_ensenanza?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Método</p>
+                  </div>
+                  <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                      {profesor.prom_responsabilidad?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Responsabilidad</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
