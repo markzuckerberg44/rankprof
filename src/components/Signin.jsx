@@ -108,8 +108,7 @@ const Signin = () => {
                     {typewriterText}
                     {showCursor && <span className='animate-pulse'>|</span>}
                 </p>
-                <p className='text-sm text-center mt-5 text-gray-400 font-thin '>¿Eres profesor y quieres que te eliminemos de la app o consultar 
-                    si apareces en los rankings? <br></br> <a href="mailto:rankprof79@gmail.com">Contáctanos: rankprof79@gmail.com</a></p>
+                <p className='text-sm text-center mt-5 text-gray-400 font-thin '>Para problemas y consultas <br></br> <a href="mailto:rankprof79@gmail.com">Contáctanos en rankprof79@gmail.com</a></p>
             </div>
         </form>
     </div>
