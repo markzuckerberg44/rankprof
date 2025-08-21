@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import GoogleAuthPopup from './GoogleAuthPopup'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -12,9 +12,31 @@ const Signin = () => {
     const [googleLoading, setGoogleLoading] = useState(false);
     const [message, setMessage] = useState("");
     const [showGooglePopup, setShowGooglePopup] = useState(false);
+    
+    // Estado para el efecto typewriter
+    const [typewriterText, setTypewriterText] = useState("");
+    const [showCursor, setShowCursor] = useState(true);
+    const fullText = "Hecho por Julián Honores, Winter y Claudio Monsalve.";
 
     const { session, signInUser, signInWithGoogle } = useAuth();
     const navigate = useNavigate();
+
+    // Efecto typewriter
+    useEffect(() => {
+        let currentIndex = 0;
+        const typingInterval = setInterval(() => {
+            if (currentIndex <= fullText.length) {
+                setTypewriterText(fullText.slice(0, currentIndex));
+                currentIndex++;
+            } else {
+                clearInterval(typingInterval);
+                // Ocultar cursor cuando termine de escribir
+                setTimeout(() => setShowCursor(false), 1000);
+            }
+        }, 50); // Velocidad de escritura: 100ms por letra
+
+        return () => clearInterval(typingInterval);
+    }, []);
 
     const handleSignIn = async (e) => {
         e.preventDefault();
@@ -82,7 +104,10 @@ const Signin = () => {
                 <p className='text-center mt-5 text-yellow-400'>Solo correos @alumnos.ucn.cl permitidos</p>
                 {error && <p className='text-red-400 text-center pt-4'>{error}</p>}
                 {message && <p className='text-green-400 text-center pt-4'>{message}</p>}
-                <p className='text-sm text-center mt-5 text-white font-medium'>Hecho por Julián Honores y Claudio Monsalve.</p>
+                <p className='text-sm text-center mt-5 text-white font-medium'>
+                    {typewriterText}
+                    {showCursor && <span className='animate-pulse'>|</span>}
+                </p>
                 <p className='text-sm text-center mt-5 text-gray-400 font-thin '>¿Eres profesor y quieres que te eliminemos de la app o consultar 
                     si apareces en los rankings? <br></br> <a href="mailto:rankprof79@gmail.com">Contáctanos: rankprof79@gmail.com</a></p>
             </div>

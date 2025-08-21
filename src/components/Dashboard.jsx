@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/smallwhitelogo.png'
@@ -22,6 +22,7 @@ const Dashboard = () => {
 
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
+  const scrollContainerRef = useRef(null);
 
   // ===== Efectos: cargar según filtro y orden/búsqueda =====
 
@@ -87,6 +88,13 @@ const Dashboard = () => {
       setIsLoading(false);
     }
   }, [activeFilter, sortOrder, searchRanking, userFacultad]);
+
+  // ===== Efecto: scroll to top cuando cambian los datos =====
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [profesoresUI]);
 
   // ====== Carga: modo "Todos" (profesor_promedios) ======
   const loadDesdePromedios = async () => {
@@ -665,7 +673,7 @@ const Dashboard = () => {
             <p className='text-gray-400'>Cargando rankings...</p>
           </div>
         ) : (
-          <div className='w-full h-full flex-1 overflow-y-auto flex flex-col gap-6 scrollbar-hide px-4 py-6' style={{scrollSnapType: 'y mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none'}}>
+          <div ref={scrollContainerRef} className='w-full h-full flex-1 overflow-y-auto flex flex-col gap-6 scrollbar-hide px-4 py-6' style={{scrollSnapType: 'y mandatory', msOverflowStyle: 'none', scrollbarWidth: 'none'}}>
             {profesoresUI.map((profesor) => (
               <div 
                 key={profesor.profesor_id} 
