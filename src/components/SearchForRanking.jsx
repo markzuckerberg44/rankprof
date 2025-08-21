@@ -25,20 +25,66 @@ const SearchForRanking = () => {
     responsabilidad: 0
   });
   
+  // Estados para manejo de facultades
+  const [userFacultad, setUserFacultad] = useState(null);
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [facultyChoice, setFacultyChoice] = useState('');
+  const [savingFaculty, setSavingFaculty] = useState(false);
+  const [facultyError, setFacultyError] = useState('');
+  
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Cargar profesores por defecto al montar el componente
+  // Verificar facultad del usuario al cargar
   useEffect(() => {
-    loadDefaultProfessors();
-  }, []);
+    const checkFaculty = async () => {
+      try {
+        if (!session?.user?.id) return;
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, facultad')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error consultando profiles:', error);
+          return;
+        }
+
+        // Guardar la facultad del usuario
+        if (data && data.facultad) {
+          setUserFacultad(data.facultad);
+        }
+
+        // Si no existe fila o la facultad es null, mostramos el modal
+        if (!data || data.facultad == null) {
+          setShowFacultyModal(true);
+        }
+      } catch (e) {
+        console.error('Error al verificar facultad:', e);
+      }
+    };
+
+    checkFaculty();
+  }, [session]);
+
+  // Cargar profesores por defecto al montar el componente (solo si ya conocemos la facultad)
+  useEffect(() => {
+    if (userFacultad !== null) {
+      loadDefaultProfessors();
+    }
+  }, [userFacultad]);
 
   const loadDefaultProfessors = async () => {
     setIsLoading(true);
     try {
+      // Seleccionar tabla según la facultad del usuario
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      
       // Obtener todos los profesores para el scroll
       const { data: profesores, error } = await supabase
-        .from('profesores')
+        .from(tableName)
         .select("*");
 
       if (error) {
@@ -100,10 +146,13 @@ const SearchForRanking = () => {
   const handleProfesorClick = async (profesor) => {
     setSelectedProfesor(profesor);
     
+    // Seleccionar tabla de calificaciones según la facultad del usuario
+    const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' : 'calificaciones';
+    
     // Verificar si ya existe una calificación para este profesor por este usuario
     try {
       const { data: existingRating, error } = await supabase
-        .from('calificaciones')
+        .from(calificacionesTable)
         .select('*')
         .eq('usuario_id', session?.user?.id)
         .eq('profesor_id', profesor.id)
@@ -193,6 +242,9 @@ const SearchForRanking = () => {
         return;
       }
 
+      // Seleccionar tabla de calificaciones según la facultad del usuario
+      const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' : 'calificaciones';
+
       // Preparar los datos para insertar/actualizar en la tabla calificaciones
       const ratingData = {
         usuario_id: session?.user?.id,
@@ -209,7 +261,7 @@ const SearchForRanking = () => {
       if (isUpdatingRating) {
         // Actualizar calificación existente
         result = await supabase
-          .from('calificaciones')
+          .from(calificacionesTable)
           .update({
             personalidad: ratings.personalidad,
             metodo_ensenanza: ratings.metodo_ensenanza,
@@ -223,7 +275,7 @@ const SearchForRanking = () => {
       } else {
         // Insertar nueva calificación
         result = await supabase
-          .from('calificaciones')
+          .from(calificacionesTable)
           .insert([ratingData]);
           
         console.log('Nueva calificación creada:', result);
@@ -289,6 +341,45 @@ const SearchForRanking = () => {
     navigate("/create-profesor");
   };
 
+  // Función para manejar la selección y guardado de facultad
+  const handleSaveFaculty = async () => {
+    if (!facultyChoice) {
+      setFacultyError('Por favor selecciona una facultad');
+      return;
+    }
+
+    setSavingFaculty(true);
+    setFacultyError('');
+    
+    try {
+      const payload = {
+        id: session?.user?.id,
+        facultad: facultyChoice,   // 'ingenieria' o 'derecho'
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert([payload], { onConflict: 'id' });
+
+      if (error) {
+        console.error('Error guardando facultad:', error);
+        setFacultyError('Error al guardar la facultad. Inténtalo de nuevo.');
+        return;
+      }
+
+      // Éxito: actualizar estado local y cerrar modal
+      setUserFacultad(facultyChoice);
+      setShowFacultyModal(false);
+      setFacultyChoice('');
+      
+    } catch (error) {
+      console.error('Error:', error);
+      setFacultyError('Error inesperado. Inténtalo de nuevo.');
+    } finally {
+      setSavingFaculty(false);
+    }
+  };
+
   // Función de búsqueda simple
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
@@ -301,8 +392,11 @@ const SearchForRanking = () => {
     setIsLoading(true);
     
     try {
+      // Seleccionar tabla según la facultad del usuario
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      
       let { data: profesores, error } = await supabase
-        .from('profesores')
+        .from(tableName)
         .select("*")
         .ilike('nombre_apellido', `%${searchTerm}%`);
 
@@ -336,8 +430,11 @@ const SearchForRanking = () => {
     setIsLoading(true);
     
     try {
+      // Seleccionar tabla según la facultad del usuario
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      
       let { data: profesores, error } = await supabase
-        .from('profesores')
+        .from(tableName)
         .select("*")
         .ilike('nombre_apellido', `%${value}%`);
 
@@ -493,113 +590,139 @@ const SearchForRanking = () => {
         {/* Contenido principal */}
         <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
             <div className='max-w-md w-full text-center'>
-                {/* Barra de búsqueda */}
-                <div className='relative mt-6 mb-4'>
-                    <input 
-                        type="text"
-                        value={searchTerm}
-                        onChange={handleSearchChange}
-                        placeholder="Buscar profesor..."
-                        className='w-full p-3 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none transition-colors duration-200'
-                        style={{backgroundColor: '#1A1A1A'}}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <button 
-                        onClick={handleSearch}
-                        className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors'
-                    >
-                        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
-                        </svg>
-                    </button>
-                </div>
-
-                {/* Resultados de búsqueda o profesores por defecto */}
-                {isLoading && (
-                    <div className='text-center py-4'>
-                        <p className='text-gray-400'>Cargando...</p>
-                    </div>
-                )}
-
-                {/* Mostrar resultados de búsqueda cuando hay término de búsqueda */}
-                {searchTerm && searchResults.length > 0 && (
-                    <div className='mt-4 space-y-3'>
-                        <h3 className='text-lg font-medium mb-4'>Resultados de búsqueda:</h3>
-                        {searchResults.map((profesor) => (
-                            <div 
-                                key={profesor.id} 
-                                className='bg-zinc-800 p-4 rounded-lg hover:bg-zinc-700 cursor-pointer transition-colors duration-200 border border-zinc-600'
-                                onClick={() => handleProfesorClick(profesor)}
+                {/* Verificar si el usuario tiene acceso según su facultad */}
+                {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho') ? (
+                    <>
+                        {/* Barra de búsqueda */}
+                        <div className='relative mt-6 mb-4'>
+                            <input 
+                                type="text"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                placeholder="Buscar profesor..."
+                                className='w-full p-3 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none transition-colors duration-200'
+                                style={{backgroundColor: '#1A1A1A'}}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            />
+                            <button 
+                                onClick={handleSearch}
+                                className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors'
                             >
-                                <h4 className='text-white font-medium'>{profesor.nombre_apellido}</h4>
-                                {profesor.departamento && <p className='text-gray-400 text-sm'>{profesor.departamento}</p>}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Mostrar profesores por defecto cuando no hay búsqueda */}
-                {!searchTerm && defaultProfessors.length > 0 && (
-                    <div className='mt-4'>
-                        <h3 className='text-lg font-medium mb-4'>Profesores:</h3>
-                        <div 
-                            className='space-y-3 max-h-80 overflow-y-auto scrollbar-hide'
-                            style={{
-                                scrollbarWidth: 'none', /* Firefox */
-                                msOverflowStyle: 'none'  /* Internet Explorer and Edge */
-                            }}
-                        >
-                            {allProfessors.map((profesor) => (
-                                <div 
-                                    key={profesor.id} 
-                                    className='bg-zinc-800 p-4 rounded-lg hover:bg-zinc-700 cursor-pointer transition-colors duration-200 border border-zinc-600 flex-shrink-0'
-                                    onClick={() => handleProfesorClick(profesor)}
-                                >
-                                    <h4 className='text-white font-medium'>{profesor.nombre_apellido}</h4>
-                                    {profesor.departamento && <p className='text-gray-400 text-sm'>{profesor.departamento}</p>}
-                                </div>
-                            ))}
+                                <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
+                                </svg>
+                            </button>
                         </div>
-                    </div>
-                )}
 
-                {/* Mensaje cuando no hay resultados de búsqueda */}
-                {searchTerm && searchResults.length === 0 && !isLoading && (
-                    <div className='text-center py-6'>
+                        {/* Resultados de búsqueda o profesores por defecto */}
+                        {isLoading && (
+                            <div className='text-center py-4'>
+                                <p className='text-gray-400'>Cargando...</p>
+                            </div>
+                        )}
+
+                        {/* Mostrar resultados de búsqueda cuando hay término de búsqueda */}
+                        {searchTerm && searchResults.length > 0 && (
+                            <div className='mt-4 space-y-3'>
+                                <h3 className='text-lg font-medium mb-4'>Resultados de búsqueda:</h3>
+                                {searchResults.map((profesor) => (
+                                    <div 
+                                        key={profesor.id} 
+                                        className='bg-zinc-800 p-4 rounded-lg hover:bg-zinc-700 cursor-pointer transition-colors duration-200 border border-zinc-600'
+                                        onClick={() => handleProfesorClick(profesor)}
+                                    >
+                                        <h4 className='text-white font-medium'>{profesor.nombre_apellido}</h4>
+                                        {profesor.departamento && <p className='text-gray-400 text-sm'>{profesor.departamento}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Mostrar profesores por defecto cuando no hay búsqueda */}
+                        {!searchTerm && defaultProfessors.length > 0 && (
+                            <div className='mt-4'>
+                                <h3 className='text-lg font-medium mb-4'>
+                                    Profesores {userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'}:
+                                </h3>
+                                <div 
+                                    className='space-y-3 max-h-80 overflow-y-auto scrollbar-hide'
+                                    style={{
+                                        scrollbarWidth: 'none', /* Firefox */
+                                        msOverflowStyle: 'none'  /* Internet Explorer and Edge */
+                                    }}
+                                >
+                                    {allProfessors.map((profesor) => (
+                                        <div 
+                                            key={profesor.id} 
+                                            className='bg-zinc-800 p-4 rounded-lg hover:bg-zinc-700 cursor-pointer transition-colors duration-200 border border-zinc-600 flex-shrink-0'
+                                            onClick={() => handleProfesorClick(profesor)}
+                                        >
+                                            <h4 className='text-white font-medium'>{profesor.nombre_apellido}</h4>
+                                            {profesor.departamento && <p className='text-gray-400 text-sm'>{profesor.departamento}</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Mensaje cuando no hay resultados de búsqueda */}
+                        {searchTerm && searchResults.length === 0 && !isLoading && (
+                            <div className='text-center py-6'>
+                                <div className='bg-gray-800 rounded-lg p-6 border border-gray-600'>
+                                    <div className='mb-4'>
+                                        <svg className='w-16 h-16 text-gray-500 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
+                                        </svg>
+                                        <h3 className='text-lg font-medium text-white mb-2'>
+                                            No se encontraron profesores
+                                        </h3>
+                                        <p className='text-gray-400 mb-4'>
+                                            No pudimos encontrar ningún profesor {userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
+                                        </p>
+                                    </div>
+                                    
+                                    <div className='space-y-3'>
+                                        <p className='text-gray-300 text-sm'>
+                                            ¿No encuentras al profesor que buscas?
+                                        </p>
+                                        <button 
+                                            onClick={handleCreateProfesor}
+                                            className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-2'
+                                        >
+                                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 6v6m0 0v6m0-6h6m-6 0H6'></path>
+                                            </svg>
+                                            <span>Agregar nuevo profesor</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <p className='text-gray-400 mt-5'>Busca y selecciona un profesor para enviar tu ranking.</p>
+                        <p className='text-purple-400 mt-5'>Todo es ANONIMO 🕵️</p>
+                    </>
+                ) : userFacultad === null ? (
+                    <div className='text-center py-8'>
+                        <p className='text-gray-400 text-lg'>Verificando tu facultad...</p>
+                    </div>
+                ) : (
+                    <div className='text-center py-8'>
                         <div className='bg-gray-800 rounded-lg p-6 border border-gray-600'>
                             <div className='mb-4'>
                                 <svg className='w-16 h-16 text-gray-500 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
+                                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z'></path>
                                 </svg>
                                 <h3 className='text-lg font-medium text-white mb-2'>
-                                    No se encontraron profesores
+                                    Facultad no disponible
                                 </h3>
                                 <p className='text-gray-400 mb-4'>
-                                    No pudimos encontrar ningún profesor con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
+                                    La funcionalidad de rankings está disponible solo para estudiantes de Ingeniería y Derecho.
                                 </p>
-                            </div>
-                            
-                            <div className='space-y-3'>
-                                <p className='text-gray-300 text-sm'>
-                                    ¿No encuentras al profesor que buscas?
-                                </p>
-                                <button 
-                                    onClick={handleCreateProfesor}
-                                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-2'
-                                >
-                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 6v6m0 0v6m0-6h6m-6 0H6'></path>
-                                    </svg>
-                                    <span>Agregar nuevo profesor</span>
-                                </button>
                             </div>
                         </div>
                     </div>
                 )}
-
-                {/* <h2 className='text-2xl font-thin mb-4'>Enviar ranking</h2> */}
-                <p className='text-gray-400 mt-5'>Busca y selecciona un profesor para enviar tu ranking.</p>
-                <p className='text-purple-400 mt-5'>Todo es ANONIMO 🕵️</p>
             </div>
         </div>
 
@@ -872,6 +995,63 @@ const SearchForRanking = () => {
                             }`}
                         >
                             Entendido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        
+        {/* ==== POPUP: Selección de facultad ==== */}
+        {showFacultyModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-black/60" />
+
+                {/* Modal */}
+                <div className="relative z-10 w-11/12 max-w-md rounded-xl border border-gray-700 bg-zinc-900 p-6 shadow-xl">
+                    <h3 className="text-xl font-semibold mb-2 text-white">Completa tu facultad</h3>
+                    <p className="text-sm text-gray-300 mb-4">
+                        Selecciona tu facultad para acceder al sistema de calificaciones.
+                    </p>
+
+                    <div className="space-y-3">
+                        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'ingenieria' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <input
+                                type="radio"
+                                name="facultad"
+                                value="ingenieria"
+                                checked={facultyChoice === 'ingenieria'}
+                                onChange={(e) => setFacultyChoice(e.target.value)}
+                                className="accent-blue-500"
+                            />
+                            <span className="text-white">Escuela de ingeniería</span>
+                        </label>
+
+                        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'derecho' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <input
+                                type="radio"
+                                name="facultad"
+                                value="derecho"
+                                checked={facultyChoice === 'derecho'}
+                                onChange={(e) => setFacultyChoice(e.target.value)}
+                                className="accent-blue-500"
+                            />
+                            <span className="text-white">Facultad de derecho</span>
+                        </label>
+                    </div>
+
+                    {facultyError && (
+                        <p className="text-red-400 text-sm mt-3">{facultyError}</p>
+                    )}
+
+                    <div className="mt-5 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+                            onClick={handleSaveFaculty}
+                            disabled={savingFaculty}
+                        >
+                            {savingFaculty ? 'Guardando...' : 'Guardar'}
                         </button>
                     </div>
                 </div>

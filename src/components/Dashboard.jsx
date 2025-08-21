@@ -11,19 +11,82 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' alto→bajo, 'asc' bajo→alto
   const [searchRanking, setSearchRanking] = useState('');
   const [totalProfesores, setTotalProfesores] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('calificados'); // 'todos' | 'top'
+  const [activeFilter, setActiveFilter] = useState('top'); // 'todos' | 'top'
+  const [userFacultad, setUserFacultad] = useState(null);
+  // ==== POPUP: estado ====
+  const [showFacultyModal, setShowFacultyModal] = useState(false);
+  const [facultyChoice, setFacultyChoice] = useState(null);
+  const [savingFaculty, setSavingFaculty] = useState(false);
+  const [facultyError, setFacultyError] = useState('');
+
 
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
 
   // ===== Efectos: cargar según filtro y orden/búsqueda =====
+
+  // ==== POPUP: checkear si el usuario tiene "facultad" en profiles ====
   useEffect(() => {
-    if (activeFilter === 'todos') {
-      loadDesdePromedios();
-    } else {
-      loadDesdeRanked();
+    const checkFaculty = async () => {
+      try {
+        if (!session?.user?.id) return;
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, facultad')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error consultando profiles:', error);
+          return;
+        }
+
+        // Guardar la facultad del usuario
+        if (data && data.facultad) {
+          setUserFacultad(data.facultad);
+        }
+
+        // Si no existe fila o la facultad es null, mostramos el modal
+        if (!data || data.facultad == null) {
+          setShowFacultyModal(true);
+        }
+      } catch (e) {
+        console.error('Error al verificar facultad:', e);
+      }
+    };
+
+    checkFaculty();
+  }, [session]);
+
+
+  useEffect(() => {
+    // Solo cargar datos si ya conocemos la facultad del usuario
+    if (userFacultad === null) {
+      // Aún no sabemos la facultad, no cargar nada
+      return;
     }
-  }, [activeFilter, sortOrder, searchRanking]);
+    
+    // Cargar datos según la facultad del usuario
+    if (userFacultad === 'ingenieria') {
+      if (activeFilter === 'todos') {
+        loadDesdePromedios();
+      } else {
+        loadDesdeRanked();
+      }
+    } else if (userFacultad === 'derecho') {
+      if (activeFilter === 'todos') {
+        loadDerechoTodos();
+      } else {
+        loadDerechoRanked();
+      }
+    } else {
+      // Facultad no soportada, limpiar datos
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+      setIsLoading(false);
+    }
+  }, [activeFilter, sortOrder, searchRanking, userFacultad]);
 
   // ====== Carga: modo "Todos" (profesor_promedios) ======
   const loadDesdePromedios = async () => {
@@ -199,6 +262,219 @@ const Dashboard = () => {
     }
   };
 
+  // ====== Carga: modo "Todos" para DERECHO (profesores_promedios_derecho) ======
+  const loadDerechoTodos = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer promedios de derecho
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_promedios_derecho')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Orden por puntaje_ponderado
+      const ordenados = [...lista].sort((a, b) => {
+        const A = a.puntaje_ponderado ?? 0;
+        const B = b.puntaje_ponderado ?? 0;
+        return sortOrder === 'asc' ? A - B : B - A;
+      });
+
+      // 3) Traer nombres de profesores_derecho
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_derecho')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      // 4) Conteo de ratings desde calificaciones_derecho
+      const ids = ordenados.map(p => p.id_profesor);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_derecho')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones derecho:', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 5) Normalizar usando pos_todos como posición de ranking
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+      const normalizados = ordenados.map((row, idx) => {
+        const info = profMap.get(String(row.id_profesor));
+        const pos = row.pos_todos ?? (idx + 1); // usar pos_todos
+        return {
+          profesor_id: row.id_profesor,
+          pos_ranking: pos,
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo_ensenanza,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.id_profesor] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Todos" (Derecho):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====== Carga: modo "Los más calificados" para DERECHO (profesores_promedios_derecho con filtro) ======
+  const loadDerechoRanked = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer todos los promedios de derecho
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_promedios_derecho')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Contar ratings para determinar quiénes tienen >= 5
+      const ids = lista.map(p => p.id_profesor);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_derecho')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones derecho (ranked):', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 3) Filtrar solo los que tienen >= 5 ratings (aptos para ranked)
+      const aptosParaRanked = lista.filter(row => 
+        (conteoRatings[row.id_profesor] || 0) >= 5
+      );
+
+      if (aptosParaRanked.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 4) Ordenar por puntaje_ponderado
+      const ordenados = [...aptosParaRanked].sort((a, b) => {
+        const A = a.puntaje_ponderado ?? 0;
+        const B = b.puntaje_ponderado ?? 0;
+        return sortOrder === 'asc' ? A - B : B - A;
+      });
+
+      // 5) Traer nombres de profesores_derecho
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_derecho')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 6) Normalizar usando pos_ranked como posición
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.id_profesor));
+        return {
+          profesor_id: row.id_profesor,
+          pos_ranking: row.pos_ranked, // usar pos_ranked
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo_ensenanza,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.id_profesor] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 7) Filtro por búsqueda - primero en ranked, luego en todos si no hay match
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      let filtrados;
+      
+      if (q === '') {
+        filtrados = normalizados;
+      } else {
+        // Buscar primero en los ranked
+        filtrados = normalizados.filter(p =>
+          (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+        );
+
+        // Si no hay coincidencias en ranked, buscar en todos los promedios
+        if (filtrados.length === 0) {
+          const todosLosPromedios = lista.filter(row =>
+            profMap.has(String(row.id_profesor)) &&
+            profMap.get(String(row.id_profesor)).nombre_apellido.toLowerCase().includes(q)
+          );
+
+          filtrados = todosLosPromedios.map(row => {
+            const info = profMap.get(String(row.id_profesor));
+            return {
+              profesor_id: row.id_profesor,
+              pos_ranking: null, // sin posición porque no está en ranked
+              prom_personalidad: row.prom_personalidad,
+              prom_metodo_ensenanza: row.prom_metodo_ensenanza,
+              prom_responsabilidad: row.prom_responsabilidad,
+              puntaje_ponderado: row.puntaje_ponderado,
+              total_ratings: conteoRatings[row.id_profesor] || 0,
+              profesores: info
+                ? { nombre_apellido: info.nombre_apellido, departamento: null }
+                : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+            };
+          });
+        }
+      }
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Los más calificados" (Derecho):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ====== Otros handlers ======
   const handleSortChange = (e) => {
     setSortOrder(e.target.checked ? 'asc' : 'desc');
@@ -213,6 +489,45 @@ const Dashboard = () => {
       console.error('Error signing out:', error);
     }
   };
+
+  // ==== POPUP: guardar facultad ====
+  const handleSaveFaculty = async () => {
+    setFacultyError('');
+
+    if (!facultyChoice) {
+      setFacultyError('Por favor selecciona una opción.');
+      return;
+    }
+
+    try {
+      setSavingFaculty(true);
+
+      const payload = {
+        id: session.user.id,       // FK a auth.users.id
+        facultad: facultyChoice,   // 'ingenieria' o 'derecho'
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert([payload], { onConflict: 'id' });
+
+      if (error) {
+        console.error('Error guardando facultad:', error);
+        setFacultyError('No se pudo guardar. Intenta nuevamente.');
+        return;
+      }
+
+      // Actualizar estado local
+      setUserFacultad(facultyChoice);
+      setShowFacultyModal(false);
+    } catch (e) {
+      console.error('Error general guardando facultad:', e);
+      setFacultyError('Ocurrió un error. Intenta nuevamente.');
+    } finally {
+      setSavingFaculty(false);
+    }
+  };
+
 
   const handleSendRanking = () => {
     navigate('/search-ranking');
@@ -341,7 +656,11 @@ const Dashboard = () => {
         </div>
 
         {/* Lista de profesores */}
-        {isLoading ? (
+        {userFacultad && userFacultad !== 'ingenieria' && userFacultad !== 'derecho' ? (
+          <div className='text-center py-8'>
+            <p className='text-gray-400 text-lg'>Los rankings están disponibles solo para estudiantes de ingeniería y derecho.</p>
+          </div>
+        ) : isLoading ? (
           <div className='text-center py-4'>
             <p className='text-gray-400'>Cargando rankings...</p>
           </div>
@@ -417,6 +736,67 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+        
+
+
+        {/* ==== POPUP: Selección de facultad ==== */}
+{showFacultyModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center">
+    {/* Overlay */}
+    <div className="absolute inset-0 bg-black/60" />
+
+    {/* Modal */}
+    <div className="relative z-10 w-11/12 max-w-md rounded-xl border border-gray-700 bg-zinc-900 p-6 shadow-xl">
+      <h3 className="text-xl font-semibold mb-2 text-white">Completa tu facultad</h3>
+      <p className="text-sm text-gray-300 mb-4">
+        Ingresa tu facultad correctamente. No podrás editarla más adelante.
+      </p>
+
+      <div className="space-y-3">
+        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'ingenieria' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+          <input
+            type="radio"
+            name="facultad"
+            value="ingenieria"
+            checked={facultyChoice === 'ingenieria'}
+            onChange={(e) => setFacultyChoice(e.target.value)}
+            className="accent-blue-500"
+          />
+          <span className="text-white">Escuela de ingeniería</span>
+        </label>
+
+        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'derecho' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+          <input
+            type="radio"
+            name="facultad"
+            value="derecho"
+            checked={facultyChoice === 'derecho'}
+            onChange={(e) => setFacultyChoice(e.target.value)}
+            className="accent-blue-500"
+          />
+          <span className="text-white">Facultad de derecho</span>
+        </label>
+      </div>
+
+      {facultyError && (
+        <p className="text-red-400 text-sm mt-3">{facultyError}</p>
+      )}
+
+      <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            className="px-4 py-2 rounded-md  text-white disabled:opacity-60"
+            onClick={handleSaveFaculty}
+            disabled={savingFaculty}
+          >
+            {savingFaculty ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
     </div>
   )
 }
