@@ -595,11 +595,12 @@ const SearchForRanking = () => {
                     <>
                         {/* Barra de búsqueda */}
                         <div className='relative mt-6 mb-4'>
+                
                             <input 
                                 type="text"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
-                                placeholder="Buscar profesor..."
+                                placeholder="Ingresa el nombre del profesor..."
                                 className='w-full p-3 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none transition-colors duration-200'
                                 style={{backgroundColor: '#1A1A1A'}}
                                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -699,7 +700,7 @@ const SearchForRanking = () => {
                             </div>
                         )}
 
-                        <p className='text-gray-400 mt-5'>Busca y selecciona un profesor para enviar tu ranking.</p>
+                        <p className='text-gray-400 mt-5'>Si no encuentras a tu profesor, escribe su nombre completo y haz click en Agregar.</p>
                         <p className='text-purple-400 mt-5'>Todo es ANONIMO 🕵️</p>
                     </>
                 ) : userFacultad === null ? (
