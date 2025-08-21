@@ -8,6 +8,9 @@ import SearchForRanking from "./components/SearchForRanking";
 import CreateProfesor from "./components/CreateProfesor";
 import PrivateRoute from "./components/PrivateRoute";
 import AuthCallback from "./components/AuthCallback"; // 👈 NUEVO
+import ProfComments from "./components/ProfComments"; 
+
+const a = 1;
 
 export const router = createBrowserRouter([
   { path: "/", element: <App /> },
@@ -19,6 +22,14 @@ export const router = createBrowserRouter([
     element: (
       <PrivateRoute>
         <Dashboard />
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: "/prof-comments/:id", // Add the new route after dashboard
+    element: (
+      <PrivateRoute>
+        <ProfComments />
       </PrivateRoute>
     ),
   },
