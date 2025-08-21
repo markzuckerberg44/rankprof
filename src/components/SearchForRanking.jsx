@@ -153,12 +153,12 @@ const SearchForRanking = () => {
     try {
       const { data: existingRating, error } = await supabase
         .from(calificacionesTable)
-        .select('*')
+        .select('usuario_id, profesor_id, personalidad, metodo_ensenanza, responsabilidad')
         .eq('usuario_id', session?.user?.id)
         .eq('profesor_id', profesor.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error verificando calificación existente:', error);
         showMessage('Error', 'Error al verificar calificaciones previas', 'error');
         return;
@@ -256,10 +256,17 @@ const SearchForRanking = () => {
 
       console.log('Datos a enviar:', ratingData);
 
+      // Approach más confiable: primero verificar si existe, luego insertar o actualizar
+      const { data: existingRating } = await supabase
+        .from(calificacionesTable)
+        .select('id')
+        .eq('usuario_id', session?.user?.id)
+        .eq('profesor_id', selectedProfesor.id)
+        .maybeSingle();
+
       let result;
-      
-      if (isUpdatingRating) {
-        // Actualizar calificación existente
+      if (existingRating) {
+        // Actualizar registro existente
         result = await supabase
           .from(calificacionesTable)
           .update({
@@ -267,25 +274,26 @@ const SearchForRanking = () => {
             metodo_ensenanza: ratings.metodo_ensenanza,
             responsabilidad: ratings.responsabilidad
           })
-          .eq('usuario_id', session?.user?.id)
-          .eq('profesor_id', selectedProfesor.id);
-          
-        console.log('Calificación actualizada:', result);
-        showMessage('¡Éxito!', 'Calificación actualizada exitosamente', 'success');
+          .eq('id', existingRating.id);
       } else {
-        // Insertar nueva calificación
+        // Insertar nuevo registro
         result = await supabase
           .from(calificacionesTable)
           .insert([ratingData]);
-          
-        console.log('Nueva calificación creada:', result);
-        showMessage('¡Éxito!', 'Rating enviado exitosamente', 'success');
       }
 
       if (result.error) {
         console.error('Error al procesar calificación:', result.error);
         showMessage('Error', 'Error al procesar el rating: ' + result.error.message, 'error');
         return;
+      }
+
+      console.log('Calificación procesada:', result);
+      
+      if (isUpdatingRating) {
+        showMessage('¡Éxito!', 'Calificación actualizada exitosamente', 'success');
+      } else {
+        showMessage('¡Éxito!', 'Rating enviado exitosamente', 'success');
       }
 
       closeRatingPopup();
@@ -457,7 +465,7 @@ const SearchForRanking = () => {
   return (
     <div className='min-h-screen text-white' style={{backgroundColor: '#2D2D2D'}}>
         {/* Estilos para ocultar scrollbar y para las estrellas */}
-        <style jsx>{`
+        <style>{`
           .scrollbar-hide {
             -ms-overflow-style: none;  /* Internet Explorer 10+ */
             scrollbar-width: none;  /* Firefox */
