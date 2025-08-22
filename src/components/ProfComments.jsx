@@ -146,29 +146,34 @@ const ProfComments = () => {
         </div>
 
         
-        <div className="mx-5 py-4 rounded-lg  bg-zinc-900 border border-gray-600 mt-4">
+        <div className="mx-5 pt-3 rounded-lg  bg-zinc-900 border border-gray-600 mt-4">
             <div className="relative w-full mx-auto ">
-                <div className="flex items-start gap-2">
-                <textarea
-                ref= {textareaRef}
-                value= {comentario}
-                onChange={(e) => {
-                    setComentario(e.target.value);
-                    ajustarCajaComentario();
-                }}
-                className="flex w-full min-h-[52px] max-h-[160px] rounded-lg rounded-b-none px-4 
-                bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none 
-                resize-none focus:ring-0 focus:outline-none leading-[1.2] overflow-auto"
-                placeholder="Comenta tu opinión!"
-                id="ai-input"
-                ></textarea>
+                <div className="flex items-start ">
+                    <div
+                    className= "pb-3"
+                    > {/* dumahh div para que el texto no se suba al padding */}
+                    <textarea
+                    ref= {textareaRef}
+                    value= {comentario}
+                    onChange={(e) => {
+                        setComentario(e.target.value);
+                        ajustarCajaComentario();
+                    }}
+                    className="flex w-full min-h-[52px] max-h-[105px] rounded-lg rounded-b-none px-4 
+                    bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none 
+                    resize-none focus:ring-0 focus:outline-none leading-[1.2] overflow-y-scroll
+                    scrollbar-hide box-content"
+                    placeholder="Comenta tu opinión!"
+                    id="ai-input"
+                    ></textarea>
+                </div>
 
                 <div className= 'w-30'>
                 <button
                     onClick= {handleComentarioSubmit}
                     className="rounded-lg p-2 !bg-white/10 hover:bg-white/20 text-white/80 hover:text-white 
                     cursor-pointer transition-colors focus: !outline-none focus: !ring-0 active: transform active:scale-90 active:!bg-white/30 button-override
-                    mr-3 absolute right-3 bottom-2"
+                    absolute right-2 bottom-2"
                     type="button"
                     disabled={!comentario.trim()}
                 >
@@ -193,21 +198,6 @@ const ProfComments = () => {
             </div>
         </div>
 
-        {/*
-
-        <div className="text-center mt-8">
-            <h3 className="text-2xl font-bold mb-4">
-            {isLoading ? 'Cargando...' : namensuch.nombre_apellido || 'Profesor no encontrado'}
-            </h3>
-            <h3>{profesorPromedios.prom_personalidad}</h3>
-            <h3>{profesorPromedios.prom_metodo_ensenanza}</h3>
-            <h3>{profesorPromedios.prom_responsabilidad}</h3>
-            <p className="text-gray-400">
-            ID del profesor: {id}
-            </p>
-        </div>
-
-        */}
     </div>
   );
 };
