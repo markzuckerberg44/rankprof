@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import logo from '../assets/smallwhitelogo.png'; // Asegúrate de que la ruta al logo sea correcta
+import logo from '../assets/smallwhitelogo.png';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabaseClient';
@@ -8,12 +8,13 @@ import { supabase } from '../supabaseClient';
 
 const ProfComments = () => {
   const { id } = useParams();
-  const [profesorUI, setProfesorUI] = useState([]);
+  const [profesorPromedios, setProfesorPromedios] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [namensuch, setNamensuch] = useState('');
+  const [nombreytal, setNombreytal] = useState([]);
 
   useEffect(() => {
     fetchProfesorData();
+    fetchRankingData();
     }, [id]); // Fetch data when the component mounts or id changes
   
   const { session, signOut } = useAuth();
@@ -37,7 +38,7 @@ const ProfComments = () => {
 
       if (profesoresError) throw profesoresError;
 
-        setNamensuch(profesores.nombre_apellido);
+        setNombreytal(profesores);
 
 
     } catch (error) {
@@ -45,11 +46,35 @@ const ProfComments = () => {
     } finally {
         setIsLoading(false);
     }
-
   };
 
+  const fetchRankingData = async () => {
+    setIsLoading(true)
+    try {
+        const { data: profesor_promedios, error: profesor_promediosError} = await supabase
+            .from('profesores_ranked')
+            .select('*')
+            .eq('id_profesor', id)
+            .single();
+
+        if (profesor_promediosError) throw profesor_promediosError;
+
+        setProfesorPromedios(profesor_promedios);
+
+    } catch (error) {
+        console.error('Error fetching shit:', error);
+    } finally {
+        setIsLoading(false)
+    }
+  };
+
+  //###########################
+  //tailwind y etc vvv
+  //###########################
+
   return (
-    <div className="min-h-screen text-white" style={{backgroundColor: '#2D2D2D'}}>    
+    <div className="min-h-screen text-white" style={{backgroundColor: '#2D2D2D'}}>
+
       {/* Header con logo y menú */}
         <div className='flex justify-between items-center p-4'>
             {/* Logo */}
@@ -62,17 +87,104 @@ const ProfComments = () => {
                 />
             </div>
         </div>
-            
+
+        {/* caja con info del profesor */}
+        <div
+        className='bg-zinc-800 rounded-lg p-4 border border-zinc-600 mx-5'
+        >
+            <div className='flex items-center justify-between mb-3'>
+                <div className='flex items-center space-x-3'>
+                    <div>
+                        <h3 className='text-white font-medium text-lg'>
+                        {nombreytal.nombre_apellido || `Profesor ID: ${id}`}
+                        </h3>
+                    </div>
+                </div>
+                <div className='text-right'>
+                    <div className='text-yellow-400 font-bold text-lg'>
+                      {profesorPromedios.puntaje_ponderado?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs'>Puntaje total</p>
+                  </div>
+            </div>
+
+            <div className='grid grid-cols-3 gap-2'>
+                <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                        {profesorPromedios.prom_personalidad?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Personalidad</p>
+                </div>
+                <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                        {profesorPromedios.prom_metodo_ensenanza?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Método</p>
+                </div>
+                <div className='text-center rounded-lg p-3'>
+                    <div className='text-white font-semibold'>
+                        {profesorPromedios.prom_responsabilidad?.toFixed(1) || 'N/A'}
+                    </div>
+                    <p className='text-gray-400 text-xs mt-1'>Responsabilidad</p>
+                </div>
+            </div>
+        </div>
+
+        
+        <div className="mx-5 py-4 rounded-lg  bg-zinc-900 border border-gray-600 mt-4">
+            <div className="relative max-w-xl w-full mx-auto">
+                <div className="relative flex flex-col ">
+                <textarea
+                className="w-full min-h-[52px] max-h-[200px] rounded-lg rounded-b-none px-4  bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none resize-none focus:ring-0 focus:outline-none leading-[1.2]"
+                placeholder="Comenta tu opinión!"
+                id="ai-input"
+                ></textarea>
+
+                <div className="h-12 bg-zinc-900 rounded-b-xl">
+                    <div className="absolute left-3 bottom-3 flex items-center gap-2">
+                    </div>
+
+                    <div className="absolute right-3 bottom-3">
+                        <button
+                            className="rounded-lg p-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white cursor-pointer transition-colors"
+                            type="button"
+                        >
+                        <svg
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                            strokeWidth="2"
+                            stroke="currentColor"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            height="16"
+                            width="16"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <path d="m22 2-7 20-4-9-9-4Z"></path>
+                            <path d="M22 2 11 13"></path>
+                        </svg>
+                        </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        {/*
+
         <div className="text-center mt-8">
-            <h1 className="text-2xl font-bold mb-4">
-            {isLoading ? 'Cargando...' : namensuch || 'Profesor no encontrado'}
-            </h1>
+            <h3 className="text-2xl font-bold mb-4">
+            {isLoading ? 'Cargando...' : namensuch.nombre_apellido || 'Profesor no encontrado'}
+            </h3>
+            <h3>{profesorPromedios.prom_personalidad}</h3>
+            <h3>{profesorPromedios.prom_metodo_ensenanza}</h3>
+            <h3>{profesorPromedios.prom_responsabilidad}</h3>
             <p className="text-gray-400">
             ID del profesor: {id}
             </p>
         </div>
 
-        
+        */}
     </div>
   );
 };
