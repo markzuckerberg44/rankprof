@@ -547,7 +547,6 @@ const Dashboard = () => {
   };
 
   const handleCommentClick = (profesorId) => {
-    console.log('Comentarios para profesor ID:', profesorId);
     navigate('/prof-comments/' + profesorId);
   };
 

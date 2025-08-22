@@ -11,6 +11,7 @@ const ProfComments = () => {
   const [profesorPromedios, setProfesorPromedios] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [nombreytal, setNombreytal] = useState([]);
+  const [comentario, setComentario] = useState('');
 
   useEffect(() => {
     fetchProfesorData();
@@ -24,6 +25,10 @@ const ProfComments = () => {
 
   const handleLogoClick = () => {
     navigate('/dashboard');
+  };
+
+  const handleComentarioSubmit = async () => {
+    console.log("comentario: " + comentario)
   };
 
   const fetchProfesorData = async () => {
@@ -135,26 +140,29 @@ const ProfComments = () => {
             <div className="relative max-w-xl w-full mx-auto">
                 <div className="relative flex flex-col ">
                 <textarea
+                value= {comentario}
+                onChange={(e) => setComentario(e.target.value)}
                 className="w-full min-h-[52px] max-h-[200px] rounded-lg rounded-b-none px-4  bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none resize-none focus:ring-0 focus:outline-none leading-[1.2]"
                 placeholder="Comenta tu opinión!"
                 id="ai-input"
                 ></textarea>
 
                 <div className="h-12 bg-zinc-900 rounded-b-xl">
-                    <div className="absolute left-3 bottom-3 flex items-center gap-2">
-                    </div>
-
                     <div className="absolute right-3 bottom-3">
                         <button
-                            className="rounded-lg p-2 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white cursor-pointer transition-colors"
+                            onClick= {handleComentarioSubmit}
+                            className="rounded-lg p-2 !bg-white/10 hover:bg-white/20 text-white/80 hover:text-white 
+                            cursor-pointer transition-colors focus: !outline-none focus: !ring-0 active: transform active:scale-90 active:!bg-white/30 button-override
+                            mr-3"
                             type="button"
+                            disabled={!comentario.trim()}
                         >
                         <svg
                             strokeLinejoin="round"
                             strokeLinecap="round"
                             strokeWidth="2"
                             stroke="currentColor"
-                            fill="none"
+                            fill="curre"
                             viewBox="0 0 24 24"
                             height="16"
                             width="16"
