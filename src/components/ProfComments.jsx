@@ -21,6 +21,7 @@ const ProfComments = () => {
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
+  const textareaRef = useRef(null);
 
 
   const handleLogoClick = () => {
@@ -29,6 +30,15 @@ const ProfComments = () => {
 
   const handleComentarioSubmit = async () => {
     console.log("comentario: " + comentario)
+  };
+
+  const ajustarCajaComentario = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+        textarea.style.height = 'auto';
+        const newHeight = Math.min(textarea.scrollHeight, 200); // Maximum height in pixels
+        textarea.style.height = `${newHeight}px`;
+    }
   };
 
   const fetchProfesorData = async () => {
@@ -137,43 +147,48 @@ const ProfComments = () => {
 
         
         <div className="mx-5 py-4 rounded-lg  bg-zinc-900 border border-gray-600 mt-4">
-            <div className="relative max-w-xl w-full mx-auto">
-                <div className="relative flex flex-col ">
+            <div className="relative w-full mx-auto ">
+                <div className="flex items-start gap-2">
                 <textarea
+                ref= {textareaRef}
                 value= {comentario}
-                onChange={(e) => setComentario(e.target.value)}
-                className="w-full min-h-[52px] max-h-[200px] rounded-lg rounded-b-none px-4  bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none resize-none focus:ring-0 focus:outline-none leading-[1.2]"
+                onChange={(e) => {
+                    setComentario(e.target.value);
+                    ajustarCajaComentario();
+                }}
+                className="flex w-full min-h-[52px] max-h-[160px] rounded-lg rounded-b-none px-4 
+                bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none 
+                resize-none focus:ring-0 focus:outline-none leading-[1.2] overflow-auto"
                 placeholder="Comenta tu opinión!"
                 id="ai-input"
                 ></textarea>
 
-                <div className="h-12 bg-zinc-900 rounded-b-xl">
-                    <div className="absolute right-3 bottom-3">
-                        <button
-                            onClick= {handleComentarioSubmit}
-                            className="rounded-lg p-2 !bg-white/10 hover:bg-white/20 text-white/80 hover:text-white 
-                            cursor-pointer transition-colors focus: !outline-none focus: !ring-0 active: transform active:scale-90 active:!bg-white/30 button-override
-                            mr-3"
-                            type="button"
-                            disabled={!comentario.trim()}
-                        >
-                        <svg
-                            strokeLinejoin="round"
-                            strokeLinecap="round"
-                            strokeWidth="2"
-                            stroke="currentColor"
-                            fill="curre"
-                            viewBox="0 0 24 24"
-                            height="16"
-                            width="16"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <path d="m22 2-7 20-4-9-9-4Z"></path>
-                            <path d="M22 2 11 13"></path>
-                        </svg>
-                        </button>
-                    </div>
+                <div className= 'w-30'>
+                <button
+                    onClick= {handleComentarioSubmit}
+                    className="rounded-lg p-2 !bg-white/10 hover:bg-white/20 text-white/80 hover:text-white 
+                    cursor-pointer transition-colors focus: !outline-none focus: !ring-0 active: transform active:scale-90 active:!bg-white/30 button-override
+                    mr-3 absolute right-3 bottom-2"
+                    type="button"
+                    disabled={!comentario.trim()}
+                >
+                <svg
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    strokeWidth="2"
+                    stroke="currentColor"
+                    fill="curre"
+                    viewBox="0 0 24 24"
+                    height="16"
+                    width="16"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path d="m22 2-7 20-4-9-9-4Z"></path>
+                    <path d="M22 2 11 13"></path>
+                </svg>
+                </button>
                 </div>
+
                 </div>
             </div>
         </div>
