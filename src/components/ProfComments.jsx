@@ -18,7 +18,7 @@ const ProfComments = () => {
     fetchProfesorData();
     fetchRankingData();
     loadComents();
-    }, [id]); // Fetch data when the component mounts or id changes
+    }, [id, comentario]); // Fetch data when the component mounts or id changes
 
 
     useEffect(() => {
@@ -27,7 +27,7 @@ const ProfComments = () => {
 
     useEffect(() => {
 
-    }, [comentarioUI]);
+    }, [comentarioUI], );
 
 
   
@@ -79,6 +79,8 @@ const ProfComments = () => {
     } catch (error) {
         console.error('Error al comentar:', error);
         return;
+    } finally {
+        setComentario('');
     }
 
   };
@@ -190,7 +192,7 @@ const ProfComments = () => {
                 <div className='flex items-center space-x-3'>
                     <div>
                         <h3 className='text-white font-medium text-lg'>
-                        {nombreytal.nombre_apellido || `Profesor ID: ${id}`}
+                        {nombreytal.nombre_apellido || `Cargando...`}
                         </h3>
                     </div>
                 </div>
@@ -276,25 +278,42 @@ const ProfComments = () => {
                 </div>
             </div>
         </div>
+        
 
-        <div>
-            {/* Aquí irían los comentarios */}
-            {comentarioUI.map((comentario) => (
-            <div 
+        {/* aqui falta un div para el comentario del usuario */}
+
+
+        {/* Aquí irían los comentarios */}           
+        <div className='py-6'>
+            <div
             ref={scrollContainerRef}
-            key={comentario.id}
-            className="mx-5 mt-4">
-                <div className="space-y-4">
-                    {/* Ejemplo de comentario */}
-                    <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-600">
-                        <p className="text-white">{comentario.texto}</p>
-                        <span className="text-gray-400 text-sm">- Anonimo</span>
+            className='w-full h-full flex-1 overflow-y-auto flex flex-col scrollbar-hide'
+            style={{
+                height: 'calc(100vh - 400px)',
+                scrollSnapType: 'y mandatory', 
+                msOverflowStyle: 'none', 
+                scrollbarWidth: 'none'}}
+            >
+                
+                {comentarioUI
+                .filter(comentario => comentario.profesor_id === id)
+                .map((comentario) => (
+                
+                <div 
+                style={{ scrollSnapAlign: 'start' }}
+                key={comentario.id}
+                className="mx-5 mt-4 ">
+                    <div className="space-y-4">
+                        {/* Ejemplo de comentario */}
+                        <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-600">
+                            <p className="text-white">{comentario.texto}</p>
+                            <span className="text-gray-400 text-sm">- Anonimo</span>
+                        </div>
                     </div>
                 </div>
+                ))}
             </div>
-            ))}
         </div>
-
     </div>
   );
 };
