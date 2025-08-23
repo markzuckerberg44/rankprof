@@ -12,11 +12,24 @@ const ProfComments = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [nombreytal, setNombreytal] = useState([]);
   const [comentario, setComentario] = useState('');
+  const [comentarioUI, setComentarioUI] = useState([]);
 
   useEffect(() => {
     fetchProfesorData();
     fetchRankingData();
+    loadComents();
     }, [id]); // Fetch data when the component mounts or id changes
+
+
+    useEffect(() => {
+
+    });
+
+    useEffect(() => {
+
+    }, [comentarioUI]);
+
+
   
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
@@ -30,7 +43,46 @@ const ProfComments = () => {
 
   const handleComentarioSubmit = async () => {
     console.log("comentario: " + comentario)
+
+    try {
+        if (comentario === "" || comentario === " ") {
+
+        return;
+    }
+
+    const commentData = {
+        usuario_id: session?.user.id,
+        profesor_id: id,
+        texto: comentario,
+    };
+    
+    console.log("datos: " + commentData) 
+
+    let result;
+
+    result = await supabase
+        .from('comentarios_ing')
+        .insert({ 
+            usuario_id: session?.user.id,
+            profesor_id: id,
+            texto: comentario.trim(),
+         })
+
+    console.log("result submit: " + result)
+
+    if (result.error) {
+        console.error('Error inserting comment:', result.error);
+        return;
+    };
+
+
+    } catch (error) {
+        console.error('Error al comentar:', error);
+        return;
+    }
+
   };
+
 
   const ajustarCajaComentario = () => {
     const textarea = textareaRef.current;
@@ -38,6 +90,33 @@ const ProfComments = () => {
         textarea.style.height = 'auto';
         const newHeight = Math.min(textarea.scrollHeight, 200); // Maximum height in pixels
         textarea.style.height = `${newHeight}px`;
+    }
+  };
+
+  const loadComents = async () => {
+    //me when i do nothin
+    setIsLoading(true);
+    try {
+
+        //agarro los comentarios
+        const { data: comentarios, error: comentariosError } = await supabase
+            .from('comentarios_ing')
+            .select('*');
+        if (comentariosError) throw comentariosError;
+
+        const listac = comentarios ?? [];
+        if (listac.length === 0) {
+            return;
+        }
+
+        setComentarioUI(comentarios);
+
+        return;
+    } catch (error) {
+        console.error(error);
+        return;
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -196,6 +275,24 @@ const ProfComments = () => {
 
                 </div>
             </div>
+        </div>
+
+        <div>
+            {/* Aquí irían los comentarios */}
+            {comentarioUI.map((comentario) => (
+            <div 
+            ref={scrollContainerRef}
+            key={comentario.id}
+            className="mx-5 mt-4">
+                <div className="space-y-4">
+                    {/* Ejemplo de comentario */}
+                    <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-600">
+                        <p className="text-white">{comentario.texto}</p>
+                        <span className="text-gray-400 text-sm">- Anonimo</span>
+                    </div>
+                </div>
+            </div>
+            ))}
         </div>
 
     </div>
