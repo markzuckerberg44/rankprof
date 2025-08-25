@@ -107,7 +107,8 @@ const SearchForRanking = () => {
       setIsLoading(false);
     }
   };
-
+  
+  /*
   const loadMoreProfessors = async () => {
     const newLimit = showMore + 5;
     setIsLoading(true);
@@ -130,6 +131,7 @@ const SearchForRanking = () => {
       setIsLoading(false);
     }
   };
+  */
 
   const handleSignOut = async (e) => {
     e.preventDefault();
