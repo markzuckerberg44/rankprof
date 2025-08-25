@@ -725,6 +725,9 @@ const Dashboard = () => {
 
                 {/* Promedios por categoría */}
                 <div className='grid grid-cols-3 gap-2'>
+=======
+                <div className='grid grid-cols-3 gap-2 mb-3'>
+>>>>>>> 8f5ee4ff756d61786681cd39434e8f17bc509667
                   <div className='text-center rounded-lg p-3'>
                     <div className='text-white font-semibold'>
                       {profesor.prom_personalidad?.toFixed(1) || 'N/A'}
@@ -755,6 +758,14 @@ const Dashboard = () => {
                   
                   <p className='text-xs'>Reseñas</p>
                   </button>
+=======
+
+                {/* Botón de reseñas en la parte baja */}
+                <div className='mt-4'>
+                  <CustomButton onClick={() => handleCommentClick(profesor.profesor_id)}>
+                    💬 Reseñas
+                  </CustomButton>
+>>>>>>> 8f5ee4ff756d61786681cd39434e8f17bc509667
                 </div>
               </div>
             ))}
