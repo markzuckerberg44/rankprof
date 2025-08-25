@@ -13,6 +13,7 @@ const ProfComments = () => {
   const [nombreytal, setNombreytal] = useState([]);
   const [comentario, setComentario] = useState('');
   const [comentarioUI, setComentarioUI] = useState([]);
+  const [msgForUser, setMsgForUser] = useState("los comentarios deben ser aprobados antes de que sean visibles \n comenta con respeto!");
   const [textareaPlaceholder, setTextareaPlaceholder] = useState('Comenta tu opinión!');
 
   useEffect(() => {
@@ -46,10 +47,12 @@ const ProfComments = () => {
     console.log("comentario: " + comentario)
 
     try {
-        if (comentario.trim() === "") {
-            setTextareaPlaceholder("escribe algo antes de enviar!");
+        if (comentario.trim() === "" || comentario.trim().length === 0) {
+            setMsgForUser("por farvor escribe algo antes de enviar!");
+            console.log(msgForUser);
+            console.log("sybau");
         return;
-    }
+        }
     setTextareaPlaceholder("Comenta tu opinión!");
 
     const commentData = {
@@ -259,7 +262,7 @@ const ProfComments = () => {
                     cursor-pointer transition-colors focus: !outline-none focus: !ring-0 active: transform active:scale-90 active:!bg-white/30 button-override
                     absolute right-2 bottom-2"
                     type="button"
-                    disabled={!comentario.trim()}
+                    //disabled={!comentario.trim()}
                 >
                 <svg
                     strokeLinejoin="round"
@@ -283,11 +286,16 @@ const ProfComments = () => {
         </div>
         
 
-        {/* aqui falta un div para el comentario del usuario */}
+        {/* div para errores */}
+        <div className='pt-2'>
+            <p className='text-center text-xs text-red-500'>
+                {msgForUser}
+            </p>
+        </div>
 
 
         {/* Aquí irían los comentarios */}           
-        <div className='py-6'>
+        <div className=''>
             <div
             ref={scrollContainerRef}
             className='w-full h-full flex-1 overflow-y-auto flex flex-col scrollbar-hide'
