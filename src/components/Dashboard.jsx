@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import logo from '../assets/smallwhitelogo.png'
 import speechBubble from '../assets/speechBubble.png'
 import { supabase } from '../supabaseClient'
+import CustomButton from './CustomButton'
 
 const Dashboard = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -1003,7 +1004,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Promedios por categoría */}
-                <div className='grid grid-cols-4 gap-2'>
+                <div className='grid grid-cols-3 gap-2 mb-3'>
                   <div className='text-center rounded-lg p-3'>
                     <div className='text-white font-semibold'>
                       {profesor.prom_personalidad?.toFixed(1) || 'N/A'}
@@ -1022,17 +1023,13 @@ const Dashboard = () => {
                     </div>
                     <p className='text-gray-400 text-xs mt-1'>Responsabilidad</p>
                   </div>
-                  <div className='text-center rounded-lg p-3'>
-                    <button>
-                      <img 
-                      src={speechBubble} 
-                      alt="Comentarios" 
-                      className='h-6 w-6 mx-auto'
-                      onClick={() => handleCommentClick(profesor.profesor_id)}
-                      />
-                    </button>
-                    <p className='text-gray-400 text-xs mt-1'>Comentarios</p>
-                  </div>
+                </div>
+
+                {/* Botón de reseñas en la parte baja */}
+                <div className='mt-4'>
+                  <CustomButton onClick={() => handleCommentClick(profesor.profesor_id)}>
+                    Reseñas
+                  </CustomButton>
                 </div>
               </div>
               ))
