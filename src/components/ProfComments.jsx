@@ -181,7 +181,7 @@ const ProfComments = () => {
                 <img 
                     src={logo} 
                     alt="RankProf" 
-                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200' 
+                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200 drop-shadow-lg' 
                     onClick={handleLogoClick}
                 />
             </div>
