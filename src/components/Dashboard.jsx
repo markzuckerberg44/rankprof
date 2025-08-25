@@ -744,12 +744,14 @@ const Dashboard = () => {
                     <p className='text-gray-400 text-xs mt-1'>Responsabilidad</p>
                   </div>
                   <div className='text-center rounded-lg p-3'>
-                    <img 
+                    <button>
+                      <img 
                       src={speechBubble} 
                       alt="Comentarios" 
                       className='h-6 w-6 mx-auto'
                       onClick={() => handleCommentClick(profesor.profesor_id)}
-                    />
+                      />
+                    </button>
                     <p className='text-gray-400 text-xs mt-1'>Comentarios</p>
                   </div>
                 </div>

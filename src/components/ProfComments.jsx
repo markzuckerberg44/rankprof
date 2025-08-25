@@ -13,6 +13,7 @@ const ProfComments = () => {
   const [nombreytal, setNombreytal] = useState([]);
   const [comentario, setComentario] = useState('');
   const [comentarioUI, setComentarioUI] = useState([]);
+  const [textareaPlaceholder, setTextareaPlaceholder] = useState('Comenta tu opinión!');
 
   useEffect(() => {
     fetchProfesorData();
@@ -45,10 +46,11 @@ const ProfComments = () => {
     console.log("comentario: " + comentario)
 
     try {
-        if (comentario === "" || comentario === " ") {
-
+        if (comentario.trim() === "") {
+            setTextareaPlaceholder("escribe algo antes de enviar!");
         return;
     }
+    setTextareaPlaceholder("Comenta tu opinión!");
 
     const commentData = {
         usuario_id: session?.user.id,
@@ -96,14 +98,15 @@ const ProfComments = () => {
   };
 
   const loadComents = async () => {
-    //me when i do nothin
+    //cargasion de comentarios
     setIsLoading(true);
     try {
 
         //agarro los comentarios
         const { data: comentarios, error: comentariosError } = await supabase
             .from('comentarios_ing')
-            .select('*');
+            .select('*')
+            .eq('aprobado', true); //filtrar por usuario logueado
         if (comentariosError) throw comentariosError;
 
         const listac = comentarios ?? [];
@@ -244,7 +247,7 @@ const ProfComments = () => {
                     bg-zinc-900 text-white placeholder:text-white/70 border-0 outline-none 
                     resize-none focus:ring-0 focus:outline-none leading-[1.2] overflow-y-scroll
                     scrollbar-hide box-content"
-                    placeholder="Comenta tu opinión!"
+                    placeholder={textareaPlaceholder}
                     id="ai-input"
                     ></textarea>
                 </div>
