@@ -80,7 +80,9 @@ const SearchForRanking = () => {
     setIsLoading(true);
     try {
       // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                      : userFacultad === 'comercial' ? 'profesores_comercial'
+                      : 'profesores';
       
       // Obtener todos los profesores para el scroll
       const { data: profesores, error } = await supabase
@@ -147,7 +149,9 @@ const SearchForRanking = () => {
     setSelectedProfesor(profesor);
     
     // Seleccionar tabla de calificaciones según la facultad del usuario
-    const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' : 'calificaciones';
+    const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
+                               : userFacultad === 'comercial' ? 'calificaciones_comercial'
+                               : 'calificaciones';
     
     // Verificar si ya existe una calificación para este profesor por este usuario
     try {
@@ -243,7 +247,9 @@ const SearchForRanking = () => {
       }
 
       // Seleccionar tabla de calificaciones según la facultad del usuario
-      const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' : 'calificaciones';
+      const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
+                                 : userFacultad === 'comercial' ? 'calificaciones_comercial'
+                                 : 'calificaciones';
 
       // Preparar los datos para insertar/actualizar en la tabla calificaciones
       const ratingData = {
@@ -401,7 +407,9 @@ const SearchForRanking = () => {
     
     try {
       // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                      : userFacultad === 'comercial' ? 'profesores_comercial'
+                      : 'profesores';
       
       let { data: profesores, error } = await supabase
         .from(tableName)
@@ -439,7 +447,9 @@ const SearchForRanking = () => {
     
     try {
       // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                      : userFacultad === 'comercial' ? 'profesores_comercial'
+                      : 'profesores';
       
       let { data: profesores, error } = await supabase
         .from(tableName)
@@ -599,7 +609,7 @@ const SearchForRanking = () => {
         <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
             <div className='max-w-md w-full text-center'>
                 {/* Verificar si el usuario tiene acceso según su facultad */}
-                {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho') ? (
+                {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial') ? (
                     <>
                         {/* Barra de búsqueda */}
                         <div className='relative mt-6 mb-4'>
@@ -651,7 +661,9 @@ const SearchForRanking = () => {
                         {!searchTerm && defaultProfessors.length > 0 && (
                             <div className='mt-4'>
                                 <h3 className='text-lg font-medium mb-4'>
-                                    Profesores {userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'}:
+                                    Profesores {userFacultad === 'derecho' ? 'de Derecho' 
+                                             : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                             : 'de Ingeniería'}:
                                 </h3>
                                 <div 
                                     className='space-y-3 max-h-80 overflow-y-auto scrollbar-hide'
@@ -686,7 +698,9 @@ const SearchForRanking = () => {
                                             No se encontraron profesores
                                         </h3>
                                         <p className='text-gray-400 mb-4'>
-                                            No pudimos encontrar ningún profesor {userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
+                                            No pudimos encontrar ningún profesor {userFacultad === 'derecho' ? 'de Derecho' 
+                                                                                : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                                                                : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
                                         </p>
                                     </div>
                                     
@@ -726,7 +740,7 @@ const SearchForRanking = () => {
                                     Facultad no disponible
                                 </h3>
                                 <p className='text-gray-400 mb-4'>
-                                    La funcionalidad de rankings está disponible solo para estudiantes de Ingeniería y Derecho.
+                                    La funcionalidad de rankings está disponible solo para estudiantes de Ingeniería, Derecho e Ingeniería Comercial.
                                 </p>
                             </div>
                         </div>
@@ -1046,6 +1060,18 @@ const SearchForRanking = () => {
                                 className="accent-blue-500"
                             />
                             <span className="text-white">Facultad de derecho</span>
+                        </label>
+
+                        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'comercial' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <input
+                                type="radio"
+                                name="facultad"
+                                value="comercial"
+                                checked={facultyChoice === 'comercial'}
+                                onChange={(e) => setFacultyChoice(e.target.value)}
+                                className="accent-blue-500"
+                            />
+                            <span className="text-white">Ingeniería comercial</span>
                         </label>
                     </div>
 

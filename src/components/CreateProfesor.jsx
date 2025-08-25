@@ -142,7 +142,9 @@ const CreateProfesor = () => {
     }
 
     // Determinar tabla según la facultad del usuario
-    const tableName = userFacultad === 'derecho' ? 'profesores_derecho' : 'profesores';
+    const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                    : userFacultad === 'comercial' ? 'profesores_comercial'
+                    : 'profesores';
 
     // Traer todos los docentes de la tabla correspondiente
     const { data: existente, error: errorBuscar } = await supabase
@@ -162,7 +164,10 @@ const CreateProfesor = () => {
     );
 
     if (similares.length > 0) {
-      showMessage(`⚠️ Ya existe un docente ${userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'} con un nombre similar`, 'error');
+      const facultyName = userFacultad === 'derecho' ? 'de Derecho' 
+                        : userFacultad === 'comercial' ? 'de Ingeniería Comercial'
+                        : 'de Ingeniería';
+      showMessage(`⚠️ Ya existe un docente ${facultyName} con un nombre similar`, 'error');
       return;
     }
 
@@ -175,7 +180,10 @@ const CreateProfesor = () => {
       console.error(errorInsertar);
       showMessage('❌ Error al agregar el docente', 'error');
     } else {
-      showMessage(`✅ Docente ${userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'} agregado correctamente`, 'success');
+      const facultyName = userFacultad === 'derecho' ? 'de Derecho' 
+                        : userFacultad === 'comercial' ? 'de Ingeniería Comercial'
+                        : 'de Ingeniería';
+      showMessage(`✅ Docente ${facultyName} agregado correctamente`, 'success');
       setNombreApellido('');
       setTimeout(() => navigate("/search-ranking"), 1000);
     }
@@ -226,10 +234,10 @@ const CreateProfesor = () => {
       <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
         <div className='max-w-md w-full mt-6'>
           {/* Verificar si el usuario tiene acceso según su facultad */}
-          {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho') ? (
+          {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial') ? (
             <>
               <p className='font-md mb-4'>
-                Agrega un nuevo profesor {userFacultad === 'derecho' ? 'de Derecho' : 'de Ingeniería'} (no uses tildes en el nombre)
+                Agrega un nuevo profesor (no uses tildes en el nombre)
               </p>
               <form onSubmit={handleSubmit} className='space-y-4'>
                 <input
@@ -274,7 +282,7 @@ const CreateProfesor = () => {
                     Facultad no disponible
                   </h3>
                   <p className='text-gray-400 mb-4'>
-                    La funcionalidad de agregar profesores está disponible solo para estudiantes de Ingeniería y Derecho.
+                    La funcionalidad de agregar profesores está disponible solo para estudiantes de Ingeniería, Derecho e Ingeniería Comercial.
                   </p>
                 </div>
               </div>
@@ -319,6 +327,18 @@ const CreateProfesor = () => {
                   className="accent-blue-500"
                 />
                 <span className="text-white">Facultad de derecho</span>
+              </label>
+
+              <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'comercial' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                <input
+                  type="radio"
+                  name="facultad"
+                  value="comercial"
+                  checked={facultyChoice === 'comercial'}
+                  onChange={(e) => setFacultyChoice(e.target.value)}
+                  className="accent-blue-500"
+                />
+                <span className="text-white">Ingeniería comercial</span>
               </label>
             </div>
 
