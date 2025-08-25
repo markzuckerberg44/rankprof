@@ -294,11 +294,11 @@ const Dashboard = () => {
         return;
       }
 
-      // 2) Orden por puntaje_ponderado
+      // 2) Orden por pos_todos (NO por puntaje_ponderado)
       const ordenados = [...lista].sort((a, b) => {
-        const A = a.puntaje_ponderado ?? 0;
-        const B = b.puntaje_ponderado ?? 0;
-        return sortOrder === 'asc' ? A - B : B - A;
+        const posA = a.pos_todos ?? 999999;
+        const posB = b.pos_todos ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
       });
 
       // 3) Traer nombres de profesores_derecho
@@ -363,7 +363,7 @@ const Dashboard = () => {
     }
   };
 
-  // ====== Carga: modo "Los más calificados" para DERECHO (profesores_promedios_derecho con filtro) ======
+  // ====== Carga: modo "Los más calificados" para DERECHO ======
   const loadDerechoRanked = async () => {
     setIsLoading(true);
     try {
@@ -408,11 +408,11 @@ const Dashboard = () => {
         return;
       }
 
-      // 4) Ordenar por puntaje_ponderado
+      // 4) Ordenar por pos_ranked (NO por puntaje_ponderado)
       const ordenados = [...aptosParaRanked].sort((a, b) => {
-        const A = a.puntaje_ponderado ?? 0;
-        const B = b.puntaje_ponderado ?? 0;
-        return sortOrder === 'asc' ? A - B : B - A;
+        const posA = a.pos_ranked ?? 999999;
+        const posB = b.pos_ranked ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
       });
 
       // 5) Traer nombres de profesores_derecho
@@ -489,7 +489,7 @@ const Dashboard = () => {
     }
   };
 
-  // ====== Carga: modo "Todos" para COMERCIAL (profesores_promedios_comercial) ======
+  // ====== Carga: modo "Todos" para COMERCIAL ======
   const loadComercialTodos = async () => {
     setIsLoading(true);
     try {
@@ -507,11 +507,11 @@ const Dashboard = () => {
         return;
       }
 
-      // 2) Orden por puntaje_ponderado
+      // 2) Orden por pos_todos (NO por puntaje_ponderado)
       const ordenados = [...lista].sort((a, b) => {
-        const A = a.puntaje_ponderado ?? 0;
-        const B = b.puntaje_ponderado ?? 0;
-        return sortOrder === 'asc' ? A - B : B - A;
+        const posA = a.pos_todos ?? 999999;
+        const posB = b.pos_todos ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
       });
 
       // 3) Traer nombres de profesores_comercial
@@ -576,7 +576,7 @@ const Dashboard = () => {
     }
   };
 
-  // ====== Carga: modo "Los más calificados" para COMERCIAL (profesores_promedios_comercial con filtro) ======
+  // ====== Carga: modo "Los más calificados" para COMERCIAL ======
   const loadComercialRanked = async () => {
     setIsLoading(true);
     try {
@@ -621,11 +621,11 @@ const Dashboard = () => {
         return;
       }
 
-      // 4) Ordenar por puntaje_ponderado
+      // 4) Ordenar por pos_ranked (NO por puntaje_ponderado)
       const ordenados = [...aptosParaRanked].sort((a, b) => {
-        const A = a.puntaje_ponderado ?? 0;
-        const B = b.puntaje_ponderado ?? 0;
-        return sortOrder === 'asc' ? A - B : B - A;
+        const posA = a.pos_ranked ?? 999999;
+        const posB = b.pos_ranked ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
       });
 
       // 5) Traer nombres de profesores_comercial
