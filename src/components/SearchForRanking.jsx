@@ -251,6 +251,7 @@ const SearchForRanking = () => {
       // Seleccionar tabla de calificaciones según la facultad del usuario
       const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
                                  : userFacultad === 'comercial' ? 'calificaciones_comercial'
+                                 : userFacultad === 'ingenieria' ? 'calificaciones'
                                  : 'calificaciones';
 
       // Preparar los datos para insertar/actualizar en la tabla calificaciones

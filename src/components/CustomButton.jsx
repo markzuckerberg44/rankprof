@@ -14,14 +14,14 @@ const CustomButton = ({ onClick, children }) => {
 const StyledWrapper = styled.div`
   .button {
     background: var(--color-back);
-    border-radius: 0.5em;
+    border-radius: 0.5em;   
     box-shadow:
       inset 0px -6px 18px -6px rgba(3, 15, 20, 0),
       inset rgba(54, 69, 75, 1) -1px -1px 6px 0px,
       inset 12px 0px 12px -6px rgba(3, 15, 20, 0),
       inset -12px 0px 12px -6px rgba(3, 15, 20, 0),
       rgba(54, 69, 75, 1) -1px -1px 6px 0px;
-    border: solid 2px #030f14;
+    border: solid 2px #7a7a7aff;
     cursor: pointer;
     font-size: 14px;
     padding: 0.5em 1em;

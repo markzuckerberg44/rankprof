@@ -14,32 +14,79 @@ const ProfComments = () => {
   const [comentario, setComentario] = useState('');
   const [comentarioUI, setComentarioUI] = useState([]);
   const [textareaPlaceholder, setTextareaPlaceholder] = useState('Comenta tu opinión!');
+  const [userFacultad, setUserFacultad] = useState('');
 
   useEffect(() => {
-    fetchProfesorData();
-    fetchRankingData();
-    loadComents();
-    }, [id, comentario]); // Fetch data when the component mounts or id changes
+    const loadAllData = async () => {
+      await fetchUserFacultad();
+    };
+    
+    loadAllData();
+  }, [id]);
 
+  // Segundo useEffect que se ejecuta DESPUÉS de obtener la facultad
+  useEffect(() => {
+    if (userFacultad) {
+      fetchProfesorData();
+      fetchRankingData();
+      loadComents();
+    }
+  }, [userFacultad, id]);
 
-    useEffect(() => {
+  useEffect(() => {
+    if (userFacultad) {
+      loadComents();
+    }
+  }, [comentario, userFacultad]);
 
-    });
-
-    useEffect(() => {
-
-    }, [comentarioUI], );
-
-
-  
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
   const scrollContainerRef = useRef(null);
   const textareaRef = useRef(null);
 
+  const fetchUserFacultad = async () => {
+    try {
+      if (!session?.user?.id) return;
+      
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('facultad')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      
+      setUserFacultad(profile?.facultad || '');
+    } catch (error) {
+      console.error('Error fetching user faculty:', error);
+    }
+  };
 
   const handleLogoClick = () => {
     navigate('/dashboard');
+  };
+
+  const loadComents = async () => {
+    setIsLoading(true);
+    try {
+        // Usar solo comentarios_ing para todas las facultades
+        const { data: comentarios, error: comentariosError } = await supabase
+            .from('comentarios_ing')
+            .select('*')
+            .eq('aprobado', true)
+            .eq('profesor_id', id);
+
+        if (comentariosError) throw comentariosError;
+
+        const listac = comentarios ?? [];
+        setComentarioUI(listac);
+
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        setComentarioUI([]);
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleComentarioSubmit = async () => {
@@ -47,36 +94,29 @@ const ProfComments = () => {
 
     try {
         if (comentario.trim() === "") {
-            setTextareaPlaceholder("escribe algo antes de enviar!");
-        return;
-    }
-    setTextareaPlaceholder("Comenta tu opinión!");
+            setTextareaPlaceholder("Escribe algo antes de enviar!");
+            return;
+        }
+        setTextareaPlaceholder("Comenta tu opinión!");
 
-    const commentData = {
-        usuario_id: session?.user.id,
-        profesor_id: id,
-        texto: comentario,
-    };
-    
-    console.log("datos: " + commentData) 
-
-    let result;
-
-    result = await supabase
-        .from('comentarios_ing')
-        .insert({ 
-            usuario_id: session?.user.id,
+        const commentData = {
             profesor_id: id,
             texto: comentario.trim(),
-         })
+            facultad: userFacultad, // ← Esto identifica la facultad
+        };
+        
+        console.log("datos: ", commentData) 
 
-    console.log("result submit: " + result)
+        const result = await supabase
+            .from('comentarios_ing') // ← Siempre la misma tabla
+            .insert(commentData)
 
-    if (result.error) {
-        console.error('Error inserting comment:', result.error);
-        return;
-    };
+        console.log("result submit: ", result)
 
+        if (result.error) {
+            console.error('Error inserting comment:', result.error);
+            return;
+        }
 
     } catch (error) {
         console.error('Error al comentar:', error);
@@ -84,9 +124,7 @@ const ProfComments = () => {
     } finally {
         setComentario('');
     }
-
   };
-
 
   const ajustarCajaComentario = () => {
     const textarea = textareaRef.current;
@@ -97,51 +135,26 @@ const ProfComments = () => {
     }
   };
 
-  const loadComents = async () => {
-    //cargasion de comentarios
-    setIsLoading(true);
-    try {
-
-        //agarro los comentarios
-        const { data: comentarios, error: comentariosError } = await supabase
-            .from('comentarios_ing')
-            .select('*')
-            .eq('aprobado', true); //filtrar por usuario logueado
-        if (comentariosError) throw comentariosError;
-
-        const listac = comentarios ?? [];
-        if (listac.length === 0) {
-            return;
-        }
-
-        setComentarioUI(comentarios);
-
-        return;
-    } catch (error) {
-        console.error(error);
-        return;
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
   const fetchProfesorData = async () => {
     setIsLoading(true);
     try {
+      // Seleccionar tabla según la facultad del usuario
+      const profesoresTable = userFacultad === 'derecho' ? 'profesores_derecho' 
+                             : userFacultad === 'comercial' ? 'profesores_comercial'
+                             : 'profesores';
       
       const { data: profesores, error: profesoresError } = await supabase
-        .from('profesores')
+        .from(profesoresTable)  // ← Tabla dinámica
         .select('*')
         .eq('id', id)
         .single();
 
       if (profesoresError) throw profesoresError;
 
-        setNombreytal(profesores);
-
+      setNombreytal(profesores);
 
     } catch (error) {
-        console.error('Error fetching shit:', error);
+        console.error('Error fetching profesor data:', error);
     } finally {
         setIsLoading(false);
     }
@@ -150,8 +163,13 @@ const ProfComments = () => {
   const fetchRankingData = async () => {
     setIsLoading(true)
     try {
+        // Seleccionar tabla según la facultad del usuario
+        const promediosTable = userFacultad === 'derecho' ? 'profesores_promedios_derecho' 
+                              : userFacultad === 'comercial' ? 'profesores_promedios_comercial'
+                              : 'profesores_ranked';
+
         const { data: profesor_promedios, error: profesor_promediosError} = await supabase
-            .from('profesores_ranked')
+            .from(promediosTable)  // ← Tabla dinámica
             .select('*')
             .eq('id_profesor', id)
             .single();
@@ -161,7 +179,7 @@ const ProfComments = () => {
         setProfesorPromedios(profesor_promedios);
 
     } catch (error) {
-        console.error('Error fetching shit:', error);
+        console.error('Error fetching ranking data:', error);
     } finally {
         setIsLoading(false)
     }
@@ -181,7 +199,7 @@ const ProfComments = () => {
                 <img 
                     src={logo} 
                     alt="RankProf" 
-                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200' 
+                    className='h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200 drop-shadow-lg' 
                     onClick={handleLogoClick}
                 />
             </div>
@@ -298,19 +316,16 @@ const ProfComments = () => {
                 scrollbarWidth: 'none'}}
             >
                 
-                {comentarioUI
-                .filter(comentario => comentario.profesor_id === id)
-                .map((comentario) => (
+                {comentarioUI.map((comentario) => (
                 
                 <div 
                 style={{ scrollSnapAlign: 'start' }}
                 key={comentario.id}
                 className="mx-5 mt-4 ">
                     <div className="space-y-4">
-                        {/* Ejemplo de comentario */}
                         <div className="bg-zinc-800 p-4 rounded-lg border border-zinc-600">
                             <p className="text-white">{comentario.texto}</p>
-                            <span className="text-gray-400 text-sm">- Anonimo</span>
+                            <span className="text-gray-400 text-sm">- Anónimo</span>
                         </div>
                     </div>
                 </div>

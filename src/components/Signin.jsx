@@ -16,7 +16,7 @@ const Signin = () => {
     // Estado para el efecto typewriter
     const [typewriterText, setTypewriterText] = useState("");
     const [showCursor, setShowCursor] = useState(true);
-    const fullText = "Hecho por Julián Honores, Winter y Claudio Monsalve.";
+    const fullText = "Hecho por Julián Honores, Winter, Claudio Monsalve y Diego Ravanal.";
 
     const { session, signInUser, signInWithGoogle } = useAuth();
     const navigate = useNavigate();

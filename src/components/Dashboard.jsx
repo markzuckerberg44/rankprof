@@ -1028,7 +1028,7 @@ const Dashboard = () => {
                 {/* Botón de reseñas en la parte baja */}
                 <div className='mt-4'>
                   <CustomButton onClick={() => handleCommentClick(profesor.profesor_id)}>
-                    Reseñas
+                    💬 Reseñas
                   </CustomButton>
                 </div>
               </div>
