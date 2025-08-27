@@ -889,9 +889,9 @@ const Dashboard = () => {
         </div>
 
         {/* Lista de profesores */}
-        {userFacultad && userFacultad !== 'ingenieria' && userFacultad !== 'derecho' && userFacultad !== 'comercial' ? (
+        {userFacultad && userFacultad !== 'ingenieria' && userFacultad !== 'derecho' && userFacultad !== 'comercial' && userFacultad !== 'medicina' ? (
           <div className='text-center py-8'>
-            <p className='text-gray-400 text-lg'>Los rankings están disponibles solo para estudiantes de la Escuela de ingeniería, derecho y Cs. Empresariales.</p>
+            <p className='text-gray-400 text-lg'>Los rankings están disponibles solo para estudiantes de la Escuela de ingeniería, derecho, Cs. Empresariales y medicina.</p>
           </div>
         ) : isLoading ? (
           <div className='text-center py-4'>
@@ -911,9 +911,11 @@ const Dashboard = () => {
                       {activeFilter === 'top' 
                         ? `No hay profesores ${userFacultad === 'derecho' ? 'de Derecho' 
                                              : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                             : userFacultad === 'medicina' ? 'de FAMED'
                                              : 'de Ingeniería'} con más de 5 calificaciones`
                         : `No hay profesores ${userFacultad === 'derecho' ? 'de Derecho' 
                                              : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                             : userFacultad === 'medicina' ? 'de FAMED'
                                              : 'de Ingeniería'} disponibles`
                       }
                     </h3>
@@ -945,6 +947,7 @@ const Dashboard = () => {
                         <p className='text-gray-400 mb-4'>
                           No hay profesores {userFacultad === 'derecho' ? 'de Derecho' 
                                            : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                           : userFacultad === 'medicina' ? 'de salud'
                                            : 'de Ingeniería'} disponibles aún.
                         </p>
                         <button
@@ -1051,7 +1054,7 @@ const Dashboard = () => {
     <div className="relative z-10 w-11/12 max-w-md rounded-xl border border-gray-700 bg-zinc-900 p-6 shadow-xl">
       <h3 className="text-xl font-semibold mb-2 text-white">Completa tu facultad</h3>
       <p className="text-sm text-gray-300 mb-4">
-        Ingresa tu facultad correctamente. No podrás editarla más adelante.
+        ⚠️ Ingresa tu facultad correctamente. No podrás editarla más adelante.
       </p>
 
       <div className="space-y-3">
@@ -1089,6 +1092,18 @@ const Dashboard = () => {
             className="accent-blue-500"
           />
           <span className="text-white">Ciencias empresariales</span>
+        </label>
+
+        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'medicina' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+          <input
+            type="radio"
+            name="facultad"
+            value="medicina"
+            checked={facultyChoice === 'medicina'}
+            onChange={(e) => setFacultyChoice(e.target.value)}
+            className="accent-blue-500"
+          />
+          <span className="text-white">FAMED</span>
         </label>
       </div>
 
