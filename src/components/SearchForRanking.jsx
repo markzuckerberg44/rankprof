@@ -154,15 +154,18 @@ const SearchForRanking = () => {
     // Seleccionar tabla de calificaciones según la facultad del usuario
     const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
                                : userFacultad === 'comercial' ? 'calificaciones_comercial'
-                               : userFacultad === 'medicina' ? 'calificaciones_medicina'
+                               : userFacultad === 'medicina' ? 'calificaciones_med'
                                : 'calificaciones';
+    
+    // Campo de usuario según la facultad (medicina usa user_id, otras usan usuario_id)
+    const userIdField = userFacultad === 'medicina' ? 'user_id' : 'usuario_id';
     
     // Verificar si ya existe una calificación para este profesor por este usuario
     try {
       const { data: existingRating, error } = await supabase
         .from(calificacionesTable)
-        .select('usuario_id, profesor_id, personalidad, metodo_ensenanza, responsabilidad')
-        .eq('usuario_id', session?.user?.id)
+        .select(`${userIdField}, profesor_id, personalidad, metodo_ensenanza, responsabilidad`)
+        .eq(userIdField, session?.user?.id)
         .eq('profesor_id', profesor.id)
         .maybeSingle();
 
@@ -253,12 +256,15 @@ const SearchForRanking = () => {
       // Seleccionar tabla de calificaciones según la facultad del usuario
       const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
                                  : userFacultad === 'comercial' ? 'calificaciones_comercial'
-                                 : userFacultad === 'medicina' ? 'calificaciones_medicina'
+                                 : userFacultad === 'medicina' ? 'calificaciones_med'
                                  : 'calificaciones';
+
+      // Campo de usuario según la facultad (medicina usa user_id, otras usan usuario_id)
+      const userIdField = userFacultad === 'medicina' ? 'user_id' : 'usuario_id';
 
       // Preparar los datos para insertar/actualizar en la tabla calificaciones
       const ratingData = {
-        usuario_id: session?.user?.id,
+        [userIdField]: session?.user?.id,
         profesor_id: selectedProfesor.id,
         personalidad: ratings.personalidad,
         metodo_ensenanza: ratings.metodo_ensenanza,
@@ -271,7 +277,7 @@ const SearchForRanking = () => {
       const { data: existingRating } = await supabase
         .from(calificacionesTable)
         .select('id')
-        .eq('usuario_id', session?.user?.id)
+        .eq(userIdField, session?.user?.id)
         .eq('profesor_id', selectedProfesor.id)
         .maybeSingle();
 

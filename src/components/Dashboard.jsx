@@ -89,6 +89,12 @@ const Dashboard = () => {
       } else {
         loadComercialRanked();
       }
+    } else if (userFacultad === 'medicina') {
+      if (activeFilter === 'todos') {
+        loadMedicinaTodos();
+      } else {
+        loadMedicinaRanked();
+      }
     } else {
       // Facultad no soportada, limpiar datos
       setProfesoresUI([]);
@@ -428,15 +434,15 @@ const Dashboard = () => {
 
       // 6) Normalizar usando pos_ranked como posición
       const normalizados = ordenados.map(row => {
-        const info = profMap.get(String(row.id_profesor));
+        const info = profMap.get(String(row.profesor_id));
         return {
-          profesor_id: row.id_profesor,
+          profesor_id: row.profesor_id,
           pos_ranking: row.pos_ranked, // usar pos_ranked
           prom_personalidad: row.prom_personalidad,
           prom_metodo_ensenanza: row.prom_metodo_ensenanza,
           prom_responsabilidad: row.prom_responsabilidad,
           puntaje_ponderado: row.puntaje_ponderado,
-          total_ratings: conteoRatings[row.id_profesor] || 0,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
           profesores: info
             ? { nombre_apellido: info.nombre_apellido, departamento: null }
             : { nombre_apellido: 'Profesor no encontrado', departamento: null },
@@ -465,7 +471,7 @@ const Dashboard = () => {
           filtrados = todosLosPromedios.map(row => {
             const info = profMap.get(String(row.id_profesor));
             return {
-              profesor_id: row.id_profesor,
+              profesor_id: row.profesor_id,
               pos_ranking: null, // sin posición porque no está en ranked
               prom_personalidad: row.prom_personalidad,
               prom_metodo_ensenanza: row.prom_metodo_ensenanza,
@@ -704,6 +710,219 @@ const Dashboard = () => {
     }
   };
 
+  // ====== Carga: modo "Todos" para MEDICINA ======
+  const loadMedicinaTodos = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer promedios de medicina
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_med_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Orden por pos_todos (NO por puntaje_ponderado)
+      const ordenados = [...lista].sort((a, b) => {
+        const posA = a.pos_todos ?? 999999;
+        const posB = b.pos_todos ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
+      });
+
+      // 3) Traer nombres de profesores_med
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_med')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 4) Contar ratings de cada profesor en calificaciones_med
+      const ids = lista.map(p => p.profesor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_med')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones medicina:', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 5) Normalizar usando pos_todos como posición
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.profesor_id));
+        return {
+          profesor_id: row.profesor_id,
+          pos_ranking: row.pos_todos, // usar pos_todos
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Todos" (Medicina):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====== Carga: modo "Los más calificados" para MEDICINA ======
+  const loadMedicinaRanked = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer todos los promedios de medicina
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_med_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Contar ratings para determinar quiénes tienen >= 5
+      const ids = lista.map(p => p.profesor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_med')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones medicina (ranked):', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 3) Filtrar solo los que tienen >= 5 ratings (aptos para ranked)
+      const aptosParaRanked = lista.filter(row => 
+        (conteoRatings[row.profesor_id] || 0) >= 5
+      );
+
+      if (aptosParaRanked.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 4) Ordenar por pos_ranked (NO por puntaje_ponderado)
+      const ordenados = [...aptosParaRanked].sort((a, b) => {
+        const posA = a.pos_ranked ?? 999999;
+        const posB = b.pos_ranked ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
+      });
+
+      // 5) Traer nombres de profesores_med
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_med')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 6) Normalizar usando pos_ranked como posición
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.profesor_id));
+        return {
+          profesor_id: row.profesor_id,
+          pos_ranking: row.pos_ranked, // usar pos_ranked
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 7) Filtro por búsqueda - primero en ranked, luego en todos si no hay match
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      let filtrados;
+      
+      if (q === '') {
+        filtrados = normalizados;
+      } else {
+        // Buscar primero en los ranked
+        filtrados = normalizados.filter(p =>
+          (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+        );
+
+        // Si no hay coincidencias en ranked, buscar en todos los promedios
+        if (filtrados.length === 0) {
+          const todosLosPromedios = lista.filter(row =>
+            profMap.has(String(row.profesor_id)) &&
+            profMap.get(String(row.profesor_id)).nombre_apellido.toLowerCase().includes(q)
+          );
+
+          filtrados = todosLosPromedios.map(row => {
+            const info = profMap.get(String(row.profesor_id));
+            return {
+              profesor_id: row.profesor_id,
+              pos_ranking: null, // sin posición porque no está en ranked
+              prom_personalidad: row.prom_personalidad,
+              prom_metodo_ensenanza: row.prom_metodo,
+              prom_responsabilidad: row.prom_responsabilidad,
+              puntaje_ponderado: row.puntaje_ponderado,
+              total_ratings: conteoRatings[row.profesor_id] || 0,
+              profesores: info
+                ? { nombre_apellido: info.nombre_apellido, departamento: null }
+                : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+            };
+          });
+        }
+      }
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Los más calificados" (Medicina):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ====== Otros handlers ======
   const handleSortChange = (e) => {
     setSortOrder(e.target.checked ? 'asc' : 'desc');
@@ -830,7 +1049,7 @@ const Dashboard = () => {
               onClick={handleSendRanking}
               className='mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded shadow-lg hover:shadow-xl transition-all duration-200 mb-4'
             >
-              ⭐ Enviar ranking ⭐
+              Enviar ranking
             </button>
           </div>
           <h2 className='text-2xl font-thin mb-4 mt-6'>Tabla de rankings</h2>
@@ -938,7 +1157,7 @@ const Dashboard = () => {
                             onClick={() => navigate('/search-ranking')}
                             className='w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-medium'
                           >
-                            ⭐ Enviar ranking ⭐
+                            Enviar ranking
                           </button>
                         </div>
                       </div>
@@ -954,7 +1173,7 @@ const Dashboard = () => {
                           onClick={() => navigate('/search-ranking')}
                           className='w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors duration-200 font-medium'
                         >
-                          ⭐ Agregar y calificar profesores ⭐
+                          Agregar y calificar profesores
                         </button>
                       </div>
                     )}
