@@ -8,12 +8,13 @@ import CustomButton from './CustomButton'
 
 const Dashboard = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false); // ← AGREGAR ESTA LÍNEA
   const [profesoresUI, setProfesoresUI] = useState([]); // datos normalizados para render
   const [isLoading, setIsLoading] = useState(false);
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' alto→bajo, 'asc' bajo→alto
   const [searchRanking, setSearchRanking] = useState('');
   const [totalProfesores, setTotalProfesores] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('top'); // 'todos' | 'top'
+  const [activeFilter, setActiveFilter] = useState('top'); // 'todos' | 'top' | 'tutores_top' | 'tutores_todos'
   const [userFacultad, setUserFacultad] = useState(null);
   // ==== POPUP: estado ====
   const [showFacultyModal, setShowFacultyModal] = useState(false);
@@ -66,11 +67,19 @@ const Dashboard = () => {
   useEffect(() => {
     // Solo cargar datos si ya conocemos la facultad del usuario
     if (userFacultad === null) {
-      // Aún no sabemos la facultad, no cargar nada
       return;
     }
     
-    // Cargar datos según la facultad del usuario
+    // Manejar filtros de tutores (por ahora sin funcionalidad)
+    if (activeFilter === 'tutores_top' || activeFilter === 'tutores_todos') {
+      // TODO: Implementar lógica para tutores
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Cargar datos según la facultad del usuario (lógica existente)
     if (userFacultad === 'ingenieria') {
       if (activeFilter === 'todos') {
         loadDesdePromedios();
@@ -94,6 +103,12 @@ const Dashboard = () => {
         loadMedicinaTodos();
       } else {
         loadMedicinaRanked();
+      }
+    } else if (userFacultad === 'enfermeria') {
+      if (activeFilter === 'todos') {
+        loadEnfermeriaTodos();
+      } else {
+        loadEnfermeriaRanked();
       }
     } else {
       // Facultad no soportada, limpiar datos
@@ -647,7 +662,7 @@ const Dashboard = () => {
 
       // 6) Normalizar usando pos_ranked como posición
       const normalizados = ordenados.map(row => {
-        const info = profMap.get(String(row.id_profesor));
+        const info = profMap.get(String(row.profesor_id));
         return {
           profesor_id: row.id_profesor,
           pos_ranking: row.pos_ranked, // usar pos_ranked
@@ -655,7 +670,7 @@ const Dashboard = () => {
           prom_metodo_ensenanza: row.prom_metodo_ensenanza,
           prom_responsabilidad: row.prom_responsabilidad,
           puntaje_ponderado: row.puntaje_ponderado,
-          total_ratings: conteoRatings[row.id_profesor] || 0,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
           profesores: info
             ? { nombre_apellido: info.nombre_apellido, departamento: null }
             : { nombre_apellido: 'Profesor no encontrado', departamento: null },
@@ -684,7 +699,7 @@ const Dashboard = () => {
           filtrados = todosLosPromedios.map(row => {
             const info = profMap.get(String(row.id_profesor));
             return {
-              profesor_id: row.id_profesor,
+              profesor_id: row.profesor_id,
               pos_ranking: null, // sin posición porque no está en ranked
               prom_personalidad: row.prom_personalidad,
               prom_metodo_ensenanza: row.prom_metodo_ensenanza,
@@ -890,8 +905,8 @@ const Dashboard = () => {
         // Si no hay coincidencias en ranked, buscar en todos los promedios
         if (filtrados.length === 0) {
           const todosLosPromedios = lista.filter(row =>
-            profMap.has(String(row.profesor_id)) &&
-            profMap.get(String(row.profesor_id)).nombre_apellido.toLowerCase().includes(q)
+            profMap.has(String(row.id_profesor)) &&
+            profMap.get(String(row.id_profesor)).nombre_apellido.toLowerCase().includes(q)
           );
 
           filtrados = todosLosPromedios.map(row => {
@@ -903,7 +918,7 @@ const Dashboard = () => {
               prom_metodo_ensenanza: row.prom_metodo,
               prom_responsabilidad: row.prom_responsabilidad,
               puntaje_ponderado: row.puntaje_ponderado,
-              total_ratings: conteoRatings[row.profesor_id] || 0,
+              total_ratings: conteoRatings[row.id_profesor] || 0,
               profesores: info
                 ? { nombre_apellido: info.nombre_apellido, departamento: null }
                 : { nombre_apellido: 'Profesor no encontrado', departamento: null },
@@ -916,6 +931,219 @@ const Dashboard = () => {
       setTotalProfesores(normalizados.length);
     } catch (error) {
       console.error('Error en modo "Los más calificados" (Medicina):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====== Carga: modo "Todos" para ENFERMERÍA ======
+  const loadEnfermeriaTodos = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer promedios de enfermería
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_enf_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Orden por pos_todos (NO por puntaje_ponderado)
+      const ordenados = [...lista].sort((a, b) => {
+        const posA = a.pos_todos ?? 999999;
+        const posB = b.pos_todos ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
+      });
+
+      // 3) Traer nombres de profesores_enf
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_enf')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 4) Contar ratings de cada profesor en calificaciones_enf
+      const ids = lista.map(p => p.profesor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_enf')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones enfermería:', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 5) Normalizar usando pos_todos como posición
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.profesor_id));
+        return {
+          profesor_id: row.profesor_id,
+          pos_ranking: row.pos_todos, // usar pos_todos
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Todos" (Enfermería):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ====== Carga: modo "Los más calificados" para ENFERMERÍA ======
+  const loadEnfermeriaRanked = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer todos los promedios de enfermería
+      const { data: promedios, error: promediosError } = await supabase
+        .from('profesores_enf_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Contar ratings para determinar quiénes tienen >= 5
+      const ids = lista.map(p => p.profesor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_enf')
+        .select('profesor_id')
+        .in('profesor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones enfermería (ranked):', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.profesor_id] = (conteoRatings[c.profesor_id] || 0) + 1;
+      });
+
+      // 3) Filtrar solo los que tienen >= 5 ratings (aptos para ranked)
+      const aptosParaRanked = lista.filter(row => 
+        (conteoRatings[row.profesor_id] || 0) >= 5
+      );
+
+      if (aptosParaRanked.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 4) Ordenar por pos_ranked (NO por puntaje_ponderado)
+      const ordenados = [...aptosParaRanked].sort((a, b) => {
+        const posA = a.pos_ranked ?? 999999;
+        const posB = b.pos_ranked ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB; // asc = peor a mejor, desc = mejor a peor
+      });
+
+      // 5) Traer nombres de profesores_enf
+      const { data: profesores, error: profesoresError } = await supabase
+        .from('profesores_enf')
+        .select('id, nombre_apellido');
+
+      if (profesoresError) throw profesoresError;
+
+      const profMap = new Map((profesores ?? []).map(p => [String(p.id), p]));
+
+      // 6) Normalizar usando pos_ranked como posición
+      const normalizados = ordenados.map(row => {
+        const info = profMap.get(String(row.profesor_id));
+        return {
+          profesor_id: row.profesor_id,
+          pos_ranking: row.pos_ranked, // usar pos_ranked
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.profesor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+        };
+      });
+
+      // 7) Filtro por búsqueda - primero en ranked, luego en todos si no hay match
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      let filtrados;
+      
+      if (q === '') {
+        filtrados = normalizados;
+      } else {
+        // Buscar primero en los ranked
+        filtrados = normalizados.filter(p =>
+          (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+        );
+
+        // Si no hay coincidencias en ranked, buscar en todos los promedios
+        if (filtrados.length === 0) {
+          const todosLosPromedios = lista.filter(row =>
+            profMap.has(String(row.id_profesor)) &&
+            profMap.get(String(row.id_profesor)).nombre_apellido.toLowerCase().includes(q)
+          );
+
+          filtrados = todosLosPromedios.map(row => {
+            const info = profMap.get(String(row.profesor_id));
+            return {
+              profesor_id: row.profesor_id,
+              pos_ranking: null, // sin posición porque no está en ranked
+              prom_personalidad: row.prom_personalidad,
+              prom_metodo_ensenanza: row.prom_metodo,
+              prom_responsabilidad: row.prom_responsabilidad,
+              puntaje_ponderado: row.puntaje_ponderado,
+              total_ratings: conteoRatings[row.id_profesor] || 0,
+              profesores: info
+                ? { nombre_apellido: info.nombre_apellido, departamento: null }
+                : { nombre_apellido: 'Profesor no encontrado', departamento: null },
+            };
+          });
+        }
+      }
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Los más calificados" (Enfermería):', error);
       setProfesoresUI([]);
       setTotalProfesores(0);
     } finally {
@@ -1054,31 +1282,94 @@ const Dashboard = () => {
           </div>
           <h2 className='text-2xl font-thin mb-4 mt-6'>Tabla de rankings</h2>
 
-          {/* Filtros y badges */}
-          <div className='flex items-center justify-center gap-4 mb-6'>
-            {/* Icono de filtro */}
-            <span className='text-gray-400 text-2xl'>
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z" />
-              </svg>
-            </span>
-            {/* Badges */}
-            <button
-              onClick={() => setActiveFilter('top')}
-              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
-                activeFilter === 'top' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
-              }`}
-            >
-              Los más calificados
-            </button>
-            <button
-              onClick={() => setActiveFilter('todos')}
-              className={`px-3 py-1 rounded-full font-semibold text-sm shadow transition-colors duration-200 focus:outline-none ${
-                activeFilter === 'todos' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-700 text-white hover:bg-gray-800'
-              }`}
-            >
-              Todos
-            </button>
+          {/* Filtros desplegables */}
+          <div className='flex items-center justify-center gap-4 mb-6'>            
+            {/* Dropdown de filtros */}
+            <div className='relative flex justify-center w-full'>
+              <button
+                onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                className='w-[70vw] py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors duration-200 flex items-center justify-center gap-2'
+              >
+                {/* Icono de filtro dentro del botón */}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.414V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.586a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z" />
+                </svg>
+                Filtros
+                <svg 
+                  className={`w-4 h-4 transition-transform duration-200 ${isFilterMenuOpen ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {/* Overlay para cerrar menú al hacer clic fuera */}
+              {isFilterMenuOpen && (
+                <>
+                  <div
+                    className='fixed inset-0 z-10'
+                    onClick={() => setIsFilterMenuOpen(false)}
+                  />
+                  <div className='absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-[70vw] bg-gray-800 rounded-lg shadow-lg z-20 border border-gray-700 py-2'>
+                    {/* Sección Profesores */}
+                    <div className='px-3 py-2 border-b border-gray-700'>
+                      <h4 className='text-gray-300 text-xs font-semibold uppercase tracking-wide'>Profesores</h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveFilter('top');
+                        setIsFilterMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
+                        activeFilter === 'top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      Los más calificados
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveFilter('todos');
+                        setIsFilterMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
+                        activeFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    
+                    {/* Sección Tutores */}
+                    <div className='px-3 py-2 border-b border-gray-700 mt-2'>
+                      <h4 className='text-gray-300 text-xs font-semibold uppercase tracking-wide'>Tutores</h4>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveFilter('tutores_top');
+                        setIsFilterMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
+                        activeFilter === 'tutores_top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      Tutores más calificados
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveFilter('tutores_todos');
+                        setIsFilterMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
+                        activeFilter === 'tutores_todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      Todos los tutores
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Switch Toggle Component */}
@@ -1108,9 +1399,9 @@ const Dashboard = () => {
         </div>
 
         {/* Lista de profesores */}
-        {userFacultad && userFacultad !== 'ingenieria' && userFacultad !== 'derecho' && userFacultad !== 'comercial' && userFacultad !== 'medicina' ? (
+        {userFacultad && userFacultad !== 'ingenieria' && userFacultad !== 'derecho' && userFacultad !== 'comercial' && userFacultad !== 'medicina' && userFacultad !== 'enfermeria' ? (
           <div className='text-center py-8'>
-            <p className='text-gray-400 text-lg'>Los rankings están disponibles solo para estudiantes de la Escuela de ingeniería, derecho, Cs. Empresariales y medicina.</p>
+            <p className='text-gray-400 text-lg'>Los rankings están disponibles solo para estudiantes de la Escuela de ingeniería, derecho, Cs. Empresariales, medicina y enfermería.</p>
           </div>
         ) : isLoading ? (
           <div className='text-center py-4'>
@@ -1131,10 +1422,12 @@ const Dashboard = () => {
                         ? `No hay profesores ${userFacultad === 'derecho' ? 'de Derecho' 
                                              : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
                                              : userFacultad === 'medicina' ? 'de FAMED'
+                                             : userFacultad === 'enfermeria' ? 'de Enfermería'
                                              : 'de Ingeniería'} con más de 5 calificaciones`
                         : `No hay profesores ${userFacultad === 'derecho' ? 'de Derecho' 
                                              : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
                                              : userFacultad === 'medicina' ? 'de FAMED'
+                                             : userFacultad === 'enfermeria' ? 'de Enfermería'
                                              : 'de Ingeniería'} disponibles`
                       }
                     </h3>
@@ -1167,6 +1460,7 @@ const Dashboard = () => {
                           No hay profesores {userFacultad === 'derecho' ? 'de Derecho' 
                                            : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
                                            : userFacultad === 'medicina' ? 'de salud'
+                                           : userFacultad === 'enfermeria' ? 'de Enfermería'
                                            : 'de Ingeniería'} disponibles aún.
                         </p>
                         <button
@@ -1322,7 +1616,19 @@ const Dashboard = () => {
             onChange={(e) => setFacultyChoice(e.target.value)}
             className="accent-blue-500"
           />
-          <span className="text-white">FAMED</span>
+          <span className="text-white">Medicina</span>
+        </label>
+
+        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'enfermeria' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+          <input
+            type="radio"
+            name="facultad"
+            value="enfermeria"
+            checked={facultyChoice === 'enfermeria'}
+            onChange={(e) => setFacultyChoice(e.target.value)}
+            className="accent-blue-500"
+          />
+          <span className="text-white">Enfermería</span>
         </label>
       </div>
 

@@ -83,6 +83,7 @@ const SearchForRanking = () => {
       const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
                       : userFacultad === 'comercial' ? 'profesores_comercial'
                       : userFacultad === 'medicina' ? 'profesores_med'
+                      : userFacultad === 'enfermeria' ? 'profesores_enf'
                       : 'profesores';
       
       // Obtener todos los profesores para el scroll
@@ -155,10 +156,11 @@ const SearchForRanking = () => {
     const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
                                : userFacultad === 'comercial' ? 'calificaciones_comercial'
                                : userFacultad === 'medicina' ? 'calificaciones_med'
+                               : userFacultad === 'enfermeria' ? 'calificaciones_enf'
                                : 'calificaciones';
     
-    // Campo de usuario según la facultad (medicina usa user_id, otras usan usuario_id)
-    const userIdField = userFacultad === 'medicina' ? 'user_id' : 'usuario_id';
+    // Campo de usuario según la facultad (medicina y enfermería usan user_id, otras usan usuario_id)
+    const userIdField = (userFacultad === 'medicina' || userFacultad === 'enfermeria') ? 'user_id' : 'usuario_id';
     
     // Verificar si ya existe una calificación para este profesor por este usuario
     try {
@@ -257,10 +259,11 @@ const SearchForRanking = () => {
       const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
                                  : userFacultad === 'comercial' ? 'calificaciones_comercial'
                                  : userFacultad === 'medicina' ? 'calificaciones_med'
+                                 : userFacultad === 'enfermeria' ? 'calificaciones_enf'
                                  : 'calificaciones';
 
-      // Campo de usuario según la facultad (medicina usa user_id, otras usan usuario_id)
-      const userIdField = userFacultad === 'medicina' ? 'user_id' : 'usuario_id';
+      // Campo de usuario según la facultad (medicina y enfermería usan user_id, otras usan usuario_id)
+      const userIdField = (userFacultad === 'medicina' || userFacultad === 'enfermeria') ? 'user_id' : 'usuario_id';
 
       // Preparar los datos para insertar/actualizar en la tabla calificaciones
       const ratingData = {
@@ -421,6 +424,7 @@ const SearchForRanking = () => {
       const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
                       : userFacultad === 'comercial' ? 'profesores_comercial'
                       : userFacultad === 'medicina' ? 'profesores_med'
+                      : userFacultad === 'enfermeria' ? 'profesores_enf'
                       : 'profesores';
       
       let { data: profesores, error } = await supabase
@@ -462,6 +466,7 @@ const SearchForRanking = () => {
       const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
                       : userFacultad === 'comercial' ? 'profesores_comercial'
                       : userFacultad === 'medicina' ? 'profesores_med'
+                      : userFacultad === 'enfermeria' ? 'profesores_enf'
                       : 'profesores';
       
       let { data: profesores, error } = await supabase
@@ -622,7 +627,7 @@ const SearchForRanking = () => {
         <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
             <div className='max-w-md w-full text-center'>
                 {/* Verificar si el usuario tiene acceso según su facultad */}
-                {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial' || userFacultad === 'medicina') ? (
+                {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial' || userFacultad === 'medicina' || userFacultad === 'enfermeria') ? (
                     <>
                         {/* Barra de búsqueda */}
                         <div className='relative mt-6 mb-4'>
@@ -677,6 +682,7 @@ const SearchForRanking = () => {
                                     Profesores {userFacultad === 'derecho' ? 'de Derecho' 
                                              : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
                                              : userFacultad === 'medicina' ? 'de Medicina'
+                                             : userFacultad === 'enfermeria' ? 'de Enfermería'
                                              : 'de Ingeniería'}:
                                 </h3>
                                 <div 
@@ -715,6 +721,7 @@ const SearchForRanking = () => {
                                             No pudimos encontrar ningún profesor {userFacultad === 'derecho' ? 'de Derecho' 
                                                                                 : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
                                                                                 : userFacultad === 'medicina' ? 'de Medicina'
+                                                                                : userFacultad === 'enfermeria' ? 'de Enfermería'
                                                                                 : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
                                         </p>
                                     </div>
@@ -755,7 +762,7 @@ const SearchForRanking = () => {
                                     Facultad no disponible
                                 </h3>
                                 <p className='text-gray-400 mb-4'>
-                                    La funcionalidad de rankings está disponible solo para estudiantes de Ingeniería, Derecho, Ingeniería Comercial y Medicina.
+                                    La funcionalidad de rankings está disponible solo para estudiantes de Ingeniería, Derecho, Ingeniería Comercial, Medicina y Enfermería.
                                 </p>
                             </div>
                         </div>
@@ -1099,6 +1106,18 @@ const SearchForRanking = () => {
                                 className="accent-blue-500"
                             />
                             <span className="text-white">Facultad de medicina</span>
+                        </label>
+
+                        <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${facultyChoice === 'enfermeria' ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <input
+                                type="radio"
+                                name="facultad"
+                                value="enfermeria"
+                                checked={facultyChoice === 'enfermeria'}
+                                onChange={(e) => setFacultyChoice(e.target.value)}
+                                className="accent-blue-500"
+                            />
+                            <span className="text-white">Enfermería</span>
                         </label>
                     </div>
 

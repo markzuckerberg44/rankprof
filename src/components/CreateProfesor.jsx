@@ -145,6 +145,7 @@ const CreateProfesor = () => {
     const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
                     : userFacultad === 'comercial' ? 'profesores_comercial'
                     : userFacultad === 'medicina' ? 'profesores_med'
+                    : userFacultad === 'enfermeria' ? 'profesores_enf'
                     : 'profesores';
 
     // Traer todos los docentes de la tabla correspondiente
@@ -168,6 +169,7 @@ const CreateProfesor = () => {
       const facultyName = userFacultad === 'derecho' ? 'de Derecho' 
                         : userFacultad === 'comercial' ? 'de Ingeniería Comercial'
                         : userFacultad === 'medicina' ? 'de Medicina'
+                        : userFacultad === 'enfermeria' ? 'de Enfermería'
                         : 'de Ingeniería';
       showMessage(`⚠️ Ya existe un docente ${facultyName} con un nombre similar`, 'error');
       return;
@@ -185,6 +187,7 @@ const CreateProfesor = () => {
       const facultyName = userFacultad === 'derecho' ? 'de Derecho' 
                         : userFacultad === 'comercial' ? 'de Ingeniería Comercial'
                         : userFacultad === 'medicina' ? 'de Medicina'
+                        : userFacultad === 'enfermeria' ? 'de Enfermería'
                         : 'de Ingeniería';
       showMessage(`✅ Docente ${facultyName} agregado correctamente`, 'success');
       setNombreApellido('');
@@ -237,7 +240,7 @@ const CreateProfesor = () => {
       <div className='flex flex-col items-center px-6' style={{minHeight: 'calc(100vh - 80px)'}}>
         <div className='max-w-md w-full mt-6'>
           {/* Verificar si el usuario tiene acceso según su facultad */}
-          {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial' || userFacultad === 'medicina') ? (
+          {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial' || userFacultad === 'medicina' || userFacultad === 'enfermeria') ? (
             <>
               <p className='font-md mb-4'>
                 Agrega un nuevo profesor (no uses tildes en el nombre)
@@ -285,7 +288,7 @@ const CreateProfesor = () => {
                     Facultad no disponible
                   </h3>
                   <p className='text-gray-400 mb-4'>
-                    La funcionalidad de agregar profesores está disponible solo para estudiantes de Ingeniería, Derecho, Ingeniería Comercial y Medicina.
+                    La funcionalidad de agregar profesores está disponible solo para estudiantes de Ingeniería, Derecho, Ingeniería Comercial, Medicina y Enfermería.
                   </p>
                 </div>
               </div>
