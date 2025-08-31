@@ -148,6 +148,8 @@ const ProfComments = () => {
       // Seleccionar tabla según la facultad del usuario
       const profesoresTable = userFacultad === 'derecho' ? 'profesores_derecho' 
                              : userFacultad === 'comercial' ? 'profesores_comercial'
+                             : userFacultad === 'medicina' ? 'profesores_med'
+                             : userFacultad === 'enfermeria' ? 'profesores_enf'
                              : 'profesores';
       
       const { data: profesores, error: profesoresError } = await supabase
@@ -173,6 +175,8 @@ const ProfComments = () => {
         // Seleccionar tabla según la facultad del usuario
         const promediosTable = userFacultad === 'derecho' ? 'profesores_promedios_derecho' 
                               : userFacultad === 'comercial' ? 'profesores_promedios_comercial'
+                              : userFacultad === 'medicina' ? 'profesores_med_promedios'
+                                : userFacultad === 'enfermeria' ? 'profesores_enf_promedios'
                               : 'profesores_ranked';
 
         const { data: profesor_promedios, error: profesor_promediosError} = await supabase
