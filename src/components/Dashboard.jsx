@@ -1317,55 +1317,59 @@ const Dashboard = () => {
                     <div className='px-3 py-2 border-b border-gray-700'>
                       <h4 className='text-gray-300 text-xs font-semibold uppercase tracking-wide'>Profesores</h4>
                     </div>
-                    <button
-                      onClick={() => {
-                        setActiveFilter('top');
-                        setIsFilterMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
-                        activeFilter === 'top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-                      }`}
-                    >
-                      Los más calificados
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveFilter('todos');
-                        setIsFilterMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
-                        activeFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-                      }`}
-                    >
-                      Todos
-                    </button>
+                    <div className='px-3 py-1'>
+                      <button
+                        onClick={() => {
+                          setActiveFilter('top');
+                          setIsFilterMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 mb-2 text-sm transition-colors duration-200 rounded-md ${
+                          activeFilter === 'top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        Los más calificados
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveFilter('todos');
+                          setIsFilterMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 rounded-md ${
+                          activeFilter === 'todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        Todos
+                      </button>
+                    </div>
                     
                     {/* Sección Tutores */}
                     <div className='px-3 py-2 border-b border-gray-700 mt-2'>
                       <h4 className='text-gray-300 text-xs font-semibold uppercase tracking-wide'>Tutores</h4>
                     </div>
-                    <button
-                      onClick={() => {
-                        setActiveFilter('tutores_top');
-                        setIsFilterMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
-                        activeFilter === 'tutores_top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-                      }`}
-                    >
-                      Tutores más calificados
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveFilter('tutores_todos');
-                        setIsFilterMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 ${
-                        activeFilter === 'tutores_todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
-                      }`}
-                    >
-                      Todos los tutores
-                    </button>
+                    <div className='px-3 py-1'>
+                      <button
+                        onClick={() => {
+                          setActiveFilter('tutores_top');
+                          setIsFilterMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 mb-2 text-sm transition-colors duration-200 rounded-md ${
+                          activeFilter === 'tutores_top' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        Tutores más calificados
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveFilter('tutores_todos');
+                          setIsFilterMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 text-sm transition-colors duration-200 rounded-md ${
+                          activeFilter === 'tutores_todos' ? 'bg-blue-600 text-white' : 'text-white hover:bg-gray-700'
+                        }`}
+                      >
+                        Todos los tutores
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
