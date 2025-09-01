@@ -70,14 +70,12 @@ const Dashboard = () => {
       return;
     }
     
-    // Manejar filtros de tutores (por ahora sin funcionalidad)
-    if (activeFilter === 'tutores_top' || activeFilter === 'tutores_todos') {
-      // TODO: Implementar lógica para tutores
-      setProfesoresUI([]);
-      setTotalProfesores(0);
-      setIsLoading(false);
-      return;
+    if (activeFilter === 'tutores_top') {
+      loadTutoresRanked(); // Aquí iría la función de "Los más calificados" para tutores
+    } else if (activeFilter === 'tutores_todos') {
+      loadTutoresEnfermeriaTodos(); // Función que hicimos hace un momento
     }
+
     
     // Cargar datos según la facultad del usuario (lógica existente)
     if (userFacultad === 'ingenieria') {
@@ -1025,6 +1023,94 @@ const Dashboard = () => {
     }
   };
 
+  // ====== Carga: modo "Todos" para TUTORES ENFERMERÍA ======
+  const loadTutoresEnfermeriaTodos = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer promedios de tutores
+      const { data: promedios, error: promediosError } = await supabase
+        .from('tutores_enf_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Orden por pos_todos
+      const ordenados = [...lista].sort((a, b) => {
+        const posA = a.pos_todos ?? 999999;
+        const posB = b.pos_todos ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB;
+      });
+
+      // 3) Traer nombres de tutores
+      const { data: tutores, error: tutoresError } = await supabase
+        .from('tutores_enf')
+        .select('id, nombre_apellido');
+
+      if (tutoresError) throw tutoresError;
+
+      const tutMap = new Map((tutores ?? []).map(t => [String(t.id), t]));
+
+      // 4) Contar ratings de cada tutor
+      const ids = lista.map(p => p.tutor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_tut')
+        .select('tutor_id')
+        .in('tutor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones tutores:', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.tutor_id] = (conteoRatings[c.tutor_id] || 0) + 1;
+      });
+
+      // 5) Normalizar usando pos_todos como posición
+      const normalizados = ordenados.map(row => {
+        const info = tutMap.get(String(row.tutor_id));
+        return {
+          profesor_id: row.tutor_id, // para mantener consistencia con UI
+          pos_ranking: row.pos_todos,
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.tutor_id] || 0,
+          profesores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Tutor no encontrado', departamento: null },
+        };
+      });
+
+      // 6) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      const filtrados =
+        q === ''
+          ? normalizados
+          : normalizados.filter(p =>
+              (p.profesores?.nombre_apellido ?? '').toLowerCase().includes(q)
+            );
+
+      setProfesoresUI(filtrados);
+      setTotalProfesores(normalizados.length);
+    } catch (error) {
+      console.error('Error en modo "Todos" (Tutores Enfermería):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
   // ====== Carga: modo "Los más calificados" para ENFERMERÍA ======
   const loadEnfermeriaRanked = async () => {
     setIsLoading(true);
@@ -1150,6 +1236,134 @@ const Dashboard = () => {
       setIsLoading(false);
     }
   };
+
+  // ====== Carga: modo "Los más calificados" para TUTORES (Enfermería) ======
+  const loadTutoresRanked = async () => {
+    setIsLoading(true);
+    try {
+      // 1) Traer todos los promedios de tutores
+      const { data: promedios, error: promediosError } = await supabase
+        .from('tutores_enf_promedios')
+        .select('*');
+
+      if (promediosError) throw promediosError;
+
+      const lista = promedios ?? [];
+      if (lista.length === 0) {
+        setProfesoresUI([]); // si quieres, cambiar nombre de estado a tutoresUI
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 2) Contar ratings para determinar quiénes tienen >= 5
+      const ids = lista.map(p => p.tutor_id);
+      const { data: calificaciones, error: calificacionesError } = await supabase
+        .from('calificaciones_tut')
+        .select('tutor_id')
+        .in('tutor_id', ids);
+
+      if (calificacionesError) {
+        console.error('Error al obtener calificaciones tutores (ranked):', calificacionesError);
+      }
+
+      const conteoRatings = {};
+      (calificaciones ?? []).forEach(c => {
+        conteoRatings[c.tutor_id] = (conteoRatings[c.tutor_id] || 0) + 1;
+      });
+
+      // 3) Filtrar solo los que tienen >= 5 ratings (aptos para ranked)
+      const aptosParaRanked = lista.filter(row => 
+        (conteoRatings[row.tutor_id] || 0) >= 5
+      );
+
+      if (aptosParaRanked.length === 0) {
+        setProfesoresUI([]);
+        setTotalProfesores(0);
+        return;
+      }
+
+      // 4) Ordenar por pos_ranked
+      const ordenados = [...aptosParaRanked].sort((a, b) => {
+        const posA = a.pos_ranked ?? 999999;
+        const posB = b.pos_ranked ?? 999999;
+        return sortOrder === 'asc' ? posB - posA : posA - posB;
+      });
+
+      // 5) Traer nombres de tutores
+      const { data: tutores, error: tutoresError } = await supabase
+        .from('tutores_enf')
+        .select('id, nombre_apellido');
+
+      if (tutoresError) throw tutoresError;
+
+      const tutorMap = new Map((tutores ?? []).map(t => [String(t.id), t]));
+
+      // 6) Normalizar usando pos_ranked como posición
+      const normalizados = ordenados.map(row => {
+        const info = tutorMap.get(String(row.tutor_id));
+        return {
+          tutor_id: row.tutor_id,
+          pos_ranking: row.pos_ranked,
+          prom_personalidad: row.prom_personalidad,
+          prom_metodo_ensenanza: row.prom_metodo,
+          prom_responsabilidad: row.prom_responsabilidad,
+          puntaje_ponderado: row.puntaje_ponderado,
+          total_ratings: conteoRatings[row.tutor_id] || 0,
+          tutores: info
+            ? { nombre_apellido: info.nombre_apellido, departamento: null }
+            : { nombre_apellido: 'Tutor no encontrado', departamento: null },
+        };
+      });
+
+      // 7) Filtro por búsqueda
+      const q = (searchRanking ?? '').trim().toLowerCase();
+      let filtrados;
+
+      if (q === '') {
+        filtrados = normalizados;
+      } else {
+        // Buscar primero en los ranked
+        filtrados = normalizados.filter(p =>
+          (p.tutores?.nombre_apellido ?? '').toLowerCase().includes(q)
+        );
+
+        // Si no hay coincidencias en ranked, buscar en todos los promedios
+        if (filtrados.length === 0) {
+          const todosLosPromedios = lista.filter(row =>
+            tutorMap.has(String(row.tutor_id)) &&
+            tutorMap.get(String(row.tutor_id)).nombre_apellido.toLowerCase().includes(q)
+          );
+
+          filtrados = todosLosPromedios.map(row => {
+            const info = tutorMap.get(String(row.tutor_id));
+            return {
+              tutor_id: row.tutor_id,
+              pos_ranking: null,
+              prom_personalidad: row.prom_personalidad,
+              prom_metodo_ensenanza: row.prom_metodo,
+              prom_responsabilidad: row.prom_responsabilidad,
+              puntaje_ponderado: row.puntaje_ponderado,
+              total_ratings: conteoRatings[row.tutor_id] || 0,
+              tutores: info
+                ? { nombre_apellido: info.nombre_apellido, departamento: null }
+                : { nombre_apellido: 'Tutor no encontrado', departamento: null },
+            };
+          });
+        }
+      }
+
+      setProfesoresUI(filtrados); // aquí también podrías renombrar a setTutoresUI
+      setTotalProfesores(normalizados.length);
+
+    } catch (error) {
+      console.error('Error en modo "Los más calificados" (Tutores):', error);
+      setProfesoresUI([]);
+      setTotalProfesores(0);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   // ====== Otros handlers ======
   const handleSortChange = (e) => {

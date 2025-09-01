@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import logo from '../assets/smallwhitelogo.png';
 import { supabase } from '../supabaseClient';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+
+
 
 // Función para calcular la distancia de Levenshtein
 function distanciaLevenshtein(a, b) {
@@ -37,6 +40,9 @@ const CreateProfesor = () => {
   const [facultyChoice, setFacultyChoice] = useState('');
   const [savingFaculty, setSavingFaculty] = useState(false);
   const [facultyError, setFacultyError] = useState('');
+
+  const location = useLocation();
+  const tipo = location.state?.tipo || "profesor";
   
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
@@ -96,43 +102,7 @@ const CreateProfesor = () => {
   };
 
   // Función para manejar la selección y guardado de facultad
-  const handleSaveFaculty = async () => {
-    if (!facultyChoice) {
-      setFacultyError('Por favor selecciona una facultad');
-      return;
-    }
-
-    setSavingFaculty(true);
-    setFacultyError('');
-    
-    try {
-      const payload = {
-        id: session?.user?.id,
-        facultad: facultyChoice,
-      };
-
-      const { error } = await supabase
-        .from('profiles')
-        .upsert([payload], { onConflict: 'id' });
-
-      if (error) {
-        console.error('Error guardando facultad:', error);
-        setFacultyError('Error al guardar la facultad. Inténtalo de nuevo.');
-        return;
-      }
-
-      // Éxito: actualizar estado local y cerrar modal
-      setUserFacultad(facultyChoice);
-      setShowFacultyModal(false);
-      setFacultyChoice('');
-      
-    } catch (error) {
-      console.error('Error:', error);
-      setFacultyError('Error inesperado. Inténtalo de nuevo.');
-    } finally {
-      setSavingFaculty(false);
-    }
-  };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -141,13 +111,18 @@ const CreateProfesor = () => {
       return;
     }
 
-    // Determinar tabla según la facultad del usuario
-    const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
-                    : userFacultad === 'comercial' ? 'profesores_comercial'
-                    : userFacultad === 'medicina' ? 'profesores_med'
-                    : userFacultad === 'enfermeria' ? 'profesores_enf'
-                    : 'profesores';
-
+    // Determinar tabla según la facultad y tipo
+    let tableName;
+    if (userFacultad === 'enfermeria' && tipo === 'tutor') {
+      tableName = 'tutores_enf';
+    } else {
+      tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                : userFacultad === 'comercial' ? 'profesores_comercial'
+                : userFacultad === 'medicina' ? 'profesores_med'
+                : userFacultad === 'enfermeria' ? 'profesores_enf'
+                : 'profesores';
+    }
+    
     // Traer todos los docentes de la tabla correspondiente
     const { data: existente, error: errorBuscar } = await supabase
       .from(tableName)
@@ -159,10 +134,10 @@ const CreateProfesor = () => {
       return;
     }
 
-    // Verificar nombres similares usando Levenshtein
+   // Verificar nombres similares usando Levenshtein
     const umbral = 2; 
-    const similares = existente.filter(prof => 
-      distanciaLevenshtein(prof.nombre_apellido.trim(), nombreApellido.trim()) <= umbral
+    const similares = existente.filter(item => 
+      distanciaLevenshtein(item.nombre_apellido.trim(), nombreApellido.trim()) <= umbral
     );
 
     if (similares.length > 0) {
@@ -171,29 +146,35 @@ const CreateProfesor = () => {
                         : userFacultad === 'medicina' ? 'de Medicina'
                         : userFacultad === 'enfermeria' ? 'de Enfermería'
                         : 'de Ingeniería';
-      showMessage(`⚠️ Ya existe un docente ${facultyName} con un nombre similar`, 'error');
+      
+      const role = tipo === 'tutor' ? 'tutor' : 'docente';
+      showMessage(`⚠️ Ya existe un ${role} ${facultyName} con un nombre similar`, 'error');
       return;
     }
 
-    // Insertar nuevo docente en la tabla correspondiente
+    // Insertar nuevo registro en la tabla correspondiente
     const { error: errorInsertar } = await supabase
       .from(tableName)
       .insert([{ nombre_apellido: nombreApellido.trim() }]);
 
     if (errorInsertar) {
       console.error(errorInsertar);
-      showMessage('❌ Error al agregar el docente', 'error');
+      const role = tipo === 'tutor' && userFacultad === 'enfermeria' ? 'tutor' : 'docente';
+      showMessage(`❌ Error al agregar el ${role}`, 'error');
     } else {
       const facultyName = userFacultad === 'derecho' ? 'de Derecho' 
                         : userFacultad === 'comercial' ? 'de Ingeniería Comercial'
                         : userFacultad === 'medicina' ? 'de Medicina'
                         : userFacultad === 'enfermeria' ? 'de Enfermería'
                         : 'de Ingeniería';
-      showMessage(`✅ Docente ${facultyName} agregado correctamente`, 'success');
+      const role = tipo === 'tutor' && userFacultad === 'enfermeria' ? 'tutor' : 'docente';
+      showMessage(`✅ ${role.charAt(0).toUpperCase() + role.slice(1)} ${facultyName} agregado correctamente`, 'success');
       setNombreApellido('');
       setTimeout(() => navigate("/search-ranking"), 1000);
     }
   };
+
+  
 
   return (
     <div className='min-h-screen text-white' style={{backgroundColor: '#2D2D2D'}}>
@@ -243,7 +224,7 @@ const CreateProfesor = () => {
           {userFacultad && (userFacultad === 'ingenieria' || userFacultad === 'derecho' || userFacultad === 'comercial' || userFacultad === 'medicina' || userFacultad === 'enfermeria') ? (
             <>
               <p className='font-md mb-4'>
-                Agrega un nuevo profesor (no uses tildes en el nombre)
+                Agrega un nuevo {tipo === 'tutor' ? 'tutor' : 'profesor'} (no uses tildes en el nombre)
               </p>
               <form onSubmit={handleSubmit} className='space-y-4'>
                 <input

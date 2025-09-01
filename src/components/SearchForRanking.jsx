@@ -79,28 +79,46 @@ const SearchForRanking = () => {
   const loadDefaultProfessors = async () => {
     setIsLoading(true);
     try {
-      // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
-                      : userFacultad === 'comercial' ? 'profesores_comercial'
-                      : userFacultad === 'medicina' ? 'profesores_med'
-                      : userFacultad === 'enfermeria' ? 'profesores_enf'
-                      : 'profesores';
-      
-      // Obtener todos los profesores para el scroll
-      const { data: profesores, error } = await supabase
-        .from(tableName)
-        .select("*");
+      let allProfs = [];
 
-      if (error) {
-        console.error('Error cargando profesores:', error);
-        setDefaultProfessors([]);
-        setAllProfessors([]);
+      if (userFacultad === 'enfermeria') {
+        // Profesores de enfermería
+        const { data: profesores, error: errorProfesores } = await supabase
+          .from('profesores_enf')
+          .select("*");
+
+        if (errorProfesores) console.error("Error cargando profesores_enf:", errorProfesores);
+
+        // Tutores de enfermería
+        const { data: tutores, error: errorTutores } = await supabase
+          .from('tutores_enf')
+          .select("*");
+
+        if (errorTutores) console.error("Error cargando tutores_enf:", errorTutores);
+
+        allProfs = [
+          ...(profesores || []).map(p => ({ ...p, tipo: 'profesor' })),
+          ...(tutores || []).map(t => ({ ...t, tipo: 'tutor' }))
+        ];
       } else {
-        const allProfs = profesores || [];
-        setAllProfessors(allProfs);
-        // Mostrar solo los primeros 4 inicialmente
-        setDefaultProfessors(allProfs.slice(0, 4));
+        // Otras facultades → solo tabla de profesores
+        const tableName = userFacultad === 'derecho' ? 'profesores_derecho'
+                          : userFacultad === 'comercial' ? 'profesores_comercial'
+                          : userFacultad === 'medicina' ? 'profesores_med'
+                          : 'profesores';
+
+        const { data, error } = await supabase
+          .from(tableName)
+          .select("*");
+
+        if (error) console.error("Error cargando profesores:", error);
+
+        allProfs = data || [];
       }
+
+      setAllProfessors(allProfs);
+      // Mostrar solo los primeros 4 inicialmente
+      setDefaultProfessors(allProfs.slice(0, 4));
     } catch (error) {
       console.error('Error:', error);
       setDefaultProfessors([]);
@@ -109,7 +127,7 @@ const SearchForRanking = () => {
       setIsLoading(false);
     }
   };
-  
+
   /*
   const loadMoreProfessors = async () => {
     const newLimit = showMore + 5;
@@ -151,18 +169,22 @@ const SearchForRanking = () => {
 
   const handleProfesorClick = async (profesor) => {
     setSelectedProfesor(profesor);
-    
-    // Seleccionar tabla de calificaciones según la facultad del usuario
-    const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
-                               : userFacultad === 'comercial' ? 'calificaciones_comercial'
-                               : userFacultad === 'medicina' ? 'calificaciones_med'
-                               : userFacultad === 'enfermeria' ? 'calificaciones_enf'
-                               : 'calificaciones';
-    
-    // Campo de usuario según la facultad (medicina y enfermería usan user_id, otras usan usuario_id)
+
+    // Determinar si es tutor
+    const isTutor = profesor.tipo === 'tutor';
+
+    // Seleccionar tabla de calificaciones
+    const calificacionesTable = isTutor
+      ? 'calificaciones_tut'
+      : userFacultad === 'derecho' ? 'calificaciones_derecho' 
+      : userFacultad === 'comercial' ? 'calificaciones_comercial'
+      : userFacultad === 'medicina' ? 'calificaciones_med'
+      : userFacultad === 'enfermeria' ? 'calificaciones_enf'
+      : 'calificaciones';
+
+    // Campo de usuario
     const userIdField = (userFacultad === 'medicina' || userFacultad === 'enfermeria') ? 'user_id' : 'usuario_id';
-    
-    // Verificar si ya existe una calificación para este profesor por este usuario
+
     try {
       const { data: existingRating, error } = await supabase
         .from(calificacionesTable)
@@ -178,11 +200,9 @@ const SearchForRanking = () => {
       }
 
       if (existingRating) {
-        // Ya existe una calificación, mostrar popup de confirmación personalizado
         setExistingRatingData(existingRating);
         setShowConfirmPopup(true);
       } else {
-        // No existe calificación previa, inicializar en 0
         setIsUpdatingRating(false);
         setRatings({
           personalidad: 0,
@@ -198,6 +218,7 @@ const SearchForRanking = () => {
       showMessage('Error', 'Error al verificar calificaciones previas', 'error');
     }
   };
+
 
   const handleStarClick = (rating) => {
     const currentParam = getCurrentRatingParam();
@@ -249,23 +270,26 @@ const SearchForRanking = () => {
 
   const submitRating = async () => {
     try {
-      // Validar que todos los ratings estén completos
       if (ratings.personalidad === 0 || ratings.metodo_ensenanza === 0 || ratings.responsabilidad === 0) {
         showMessage('Ratings Incompletos', 'Todos los ratings deben estar completos', 'warning');
         return;
       }
 
-      // Seleccionar tabla de calificaciones según la facultad del usuario
-      const calificacionesTable = userFacultad === 'derecho' ? 'calificaciones_derecho' 
-                                 : userFacultad === 'comercial' ? 'calificaciones_comercial'
-                                 : userFacultad === 'medicina' ? 'calificaciones_med'
-                                 : userFacultad === 'enfermeria' ? 'calificaciones_enf'
-                                 : 'calificaciones';
+      // Determinar si es tutor o profesor
+      const isTutor = selectedProfesor.tipo === 'tutor';
 
-      // Campo de usuario según la facultad (medicina y enfermería usan user_id, otras usan usuario_id)
+      // Seleccionar tabla de calificaciones
+      const calificacionesTable = isTutor
+        ? 'calificaciones_tut'
+        : userFacultad === 'derecho' ? 'calificaciones_derecho' 
+        : userFacultad === 'comercial' ? 'calificaciones_comercial'
+        : userFacultad === 'medicina' ? 'calificaciones_med'
+        : userFacultad === 'enfermeria' ? 'calificaciones_enf'
+        : 'calificaciones';
+
+      // Campo de usuario
       const userIdField = (userFacultad === 'medicina' || userFacultad === 'enfermeria') ? 'user_id' : 'usuario_id';
 
-      // Preparar los datos para insertar/actualizar en la tabla calificaciones
       const ratingData = {
         [userIdField]: session?.user?.id,
         profesor_id: selectedProfesor.id,
@@ -276,7 +300,7 @@ const SearchForRanking = () => {
 
       console.log('Datos a enviar:', ratingData);
 
-      // Approach más confiable: primero verificar si existe, luego insertar o actualizar
+      // Verificar si ya existe
       const { data: existingRating } = await supabase
         .from(calificacionesTable)
         .select('id')
@@ -286,7 +310,6 @@ const SearchForRanking = () => {
 
       let result;
       if (existingRating) {
-        // Actualizar registro existente
         result = await supabase
           .from(calificacionesTable)
           .update({
@@ -296,7 +319,6 @@ const SearchForRanking = () => {
           })
           .eq('id', existingRating.id);
       } else {
-        // Insertar nuevo registro
         result = await supabase
           .from(calificacionesTable)
           .insert([ratingData]);
@@ -308,21 +330,15 @@ const SearchForRanking = () => {
         return;
       }
 
-      console.log('Calificación procesada:', result);
-      
-      if (isUpdatingRating) {
-        showMessage('¡Éxito!', 'Calificación actualizada exitosamente', 'success');
-      } else {
-        showMessage('¡Éxito!', 'Rating enviado exitosamente', 'success');
-      }
-
+      showMessage('¡Éxito!', existingRating ? 'Calificación actualizada exitosamente' : 'Rating enviado exitosamente', 'success');
       closeRatingPopup();
-      
+
     } catch (error) {
       console.error('Error procesando rating:', error);
       showMessage('Error', 'Error al procesar el rating', 'error');
     }
   };
+
 
   const closeRatingPopup = () => {
     setShowRatingPopup(false);
@@ -365,9 +381,10 @@ const SearchForRanking = () => {
     setShowMessagePopup(false);
   };
 
-  const handleCreateProfesor = () => {
-    navigate("/create-profesor");
+  const handleCreateProfesor = (tipo) => {
+    navigate("/create-profesor", { state: { tipo } });
   };
+
 
   // Función para manejar la selección y guardado de facultad
   const handleSaveFaculty = async () => {
@@ -408,7 +425,7 @@ const SearchForRanking = () => {
     }
   };
 
-  // Función de búsqueda simple
+
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
       // Si no hay término de búsqueda, resetear a vista por defecto
@@ -418,26 +435,51 @@ const SearchForRanking = () => {
     }
 
     setIsLoading(true);
-    
-    try {
-      // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
-                      : userFacultad === 'comercial' ? 'profesores_comercial'
-                      : userFacultad === 'medicina' ? 'profesores_med'
-                      : userFacultad === 'enfermeria' ? 'profesores_enf'
-                      : 'profesores';
-      
-      let { data: profesores, error } = await supabase
-        .from(tableName)
-        .select("*")
-        .ilike('nombre_apellido', `%${searchTerm}%`);
 
-      if (error) {
-        console.error('Error:', error);
-        setSearchResults([]);
+    try {
+      let resultados = [];
+
+      if (userFacultad === 'enfermeria') {
+        // Buscar en profesores_enf
+        const { data: profesores, error: errorProfesores } = await supabase
+          .from('profesores_enf')
+          .select("*")
+          .ilike('nombre_apellido', `%${searchTerm}%`);
+        if (errorProfesores) console.error('Error profesores_enf:', errorProfesores);
+
+        // Buscar en tutores_enf
+        const { data: tutores, error: errorTutores } = await supabase
+          .from('tutores_enf')
+          .select("*")
+          .ilike('nombre_apellido', `%${searchTerm}%`);
+        if (errorTutores) console.error('Error tutores_enf:', errorTutores);
+
+        // Unir resultados y añadir tipo
+        resultados = [
+          ...(profesores || []).map(p => ({ ...p, tipo: 'profesor' })),
+          ...(tutores || []).map(t => ({ ...t, tipo: 'tutor' }))
+        ];
       } else {
-        setSearchResults(profesores || []);
+        // Otras facultades → solo tabla de profesores
+        const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                        : userFacultad === 'comercial' ? 'profesores_comercial'
+                        : userFacultad === 'medicina' ? 'profesores_med'
+                        : 'profesores';
+
+        const { data, error } = await supabase
+          .from(tableName)
+          .select("*")
+          .ilike('nombre_apellido', `%${searchTerm}%`);
+
+        if (error) {
+          console.error('Error:', error);
+          resultados = [];
+        } else {
+          resultados = data || [];
+        }
       }
+
+      setSearchResults(resultados);
     } catch (error) {
       console.error('Error buscando:', error);
       setSearchResults([]);
@@ -446,11 +488,10 @@ const SearchForRanking = () => {
     }
   };
 
-  // Función para manejar cambios en el input
   const handleSearchChange = async (e) => {
     const value = e.target.value;
     setSearchTerm(value);
-    
+
     // Si se borra todo el texto, volver a mostrar profesores por defecto
     if (!value.trim()) {
       setSearchResults([]);
@@ -458,28 +499,52 @@ const SearchForRanking = () => {
       return;
     }
 
-    // Buscar en tiempo real mientras el usuario escribe
     setIsLoading(true);
-    
-    try {
-      // Seleccionar tabla según la facultad del usuario
-      const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
-                      : userFacultad === 'comercial' ? 'profesores_comercial'
-                      : userFacultad === 'medicina' ? 'profesores_med'
-                      : userFacultad === 'enfermeria' ? 'profesores_enf'
-                      : 'profesores';
-      
-      let { data: profesores, error } = await supabase
-        .from(tableName)
-        .select("*")
-        .ilike('nombre_apellido', `%${value}%`);
 
-      if (error) {
-        console.error('Error:', error);
-        setSearchResults([]);
+    try {
+      let resultados = [];
+
+      if (userFacultad === 'enfermeria') {
+        // Buscar en profesores_enf
+        const { data: profesores, error: errorProfesores } = await supabase
+          .from('profesores_enf')
+          .select("*")
+          .ilike('nombre_apellido', `%${value}%`);
+        if (errorProfesores) console.error('Error profesores_enf:', errorProfesores);
+
+        // Buscar en tutores_enf
+        const { data: tutores, error: errorTutores } = await supabase
+          .from('tutores_enf')
+          .select("*")
+          .ilike('nombre_apellido', `%${value}%`);
+        if (errorTutores) console.error('Error tutores_enf:', errorTutores);
+
+        // Unir resultados y añadir tipo
+        resultados = [
+          ...(profesores || []).map(p => ({ ...p, tipo: 'profesor' })),
+          ...(tutores || []).map(t => ({ ...t, tipo: 'tutor' }))
+        ];
       } else {
-        setSearchResults(profesores || []);
+        // Otras facultades → solo tabla de profesores
+        const tableName = userFacultad === 'derecho' ? 'profesores_derecho' 
+                        : userFacultad === 'comercial' ? 'profesores_comercial'
+                        : userFacultad === 'medicina' ? 'profesores_med'
+                        : 'profesores';
+
+        const { data, error } = await supabase
+          .from(tableName)
+          .select("*")
+          .ilike('nombre_apellido', `%${value}%`);
+
+        if (error) {
+          console.error('Error:', error);
+          resultados = [];
+        } else {
+          resultados = data || [];
+        }
       }
+
+      setSearchResults(resultados);
     } catch (error) {
       console.error('Error buscando:', error);
       setSearchResults([]);
@@ -487,6 +552,7 @@ const SearchForRanking = () => {
       setIsLoading(false);
     }
   };
+
 
 
 
@@ -679,11 +745,15 @@ const SearchForRanking = () => {
                         {!searchTerm && defaultProfessors.length > 0 && (
                             <div className='mt-4'>
                                 <h3 className='text-lg font-medium mb-4'>
-                                    Profesores {userFacultad === 'derecho' ? 'de Derecho' 
-                                             : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
-                                             : userFacultad === 'medicina' ? 'de Medicina'
-                                             : userFacultad === 'enfermeria' ? 'de Enfermería'
-                                             : 'de Ingeniería'}:
+                                  {userFacultad === 'derecho' 
+                                    ? 'Profesores de Derecho' 
+                                    : userFacultad === 'comercial' 
+                                    ? 'Profesores de Ciencias Empresariales'
+                                    : userFacultad === 'medicina' 
+                                    ? 'Profesores de Medicina'
+                                    : userFacultad === 'enfermeria' 
+                                    ? 'Profesores y Tutores de Enfermería'
+                                    : 'Profesores de Ingeniería'}
                                 </h3>
                                 <div 
                                     className='space-y-3 max-h-80 overflow-y-auto scrollbar-hide'
@@ -708,43 +778,55 @@ const SearchForRanking = () => {
 
                         {/* Mensaje cuando no hay resultados de búsqueda */}
                         {searchTerm && searchResults.length === 0 && !isLoading && (
-                            <div className='text-center py-6'>
-                                <div className='bg-gray-800 rounded-lg p-6 border border-gray-600'>
-                                    <div className='mb-4'>
-                                        <svg className='w-16 h-16 text-gray-500 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
-                                        </svg>
-                                        <h3 className='text-lg font-medium text-white mb-2'>
-                                            No se encontraron profesores
-                                        </h3>
-                                        <p className='text-gray-400 mb-4'>
-                                            No pudimos encontrar ningún profesor {userFacultad === 'derecho' ? 'de Derecho' 
-                                                                                : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
-                                                                                : userFacultad === 'medicina' ? 'de Medicina'
-                                                                                : userFacultad === 'enfermeria' ? 'de Enfermería'
-                                                                                : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
-                                        </p>
-                                    </div>
-                                    
-                                    <div className='space-y-3'>
-                                        <p className='text-gray-300 text-sm'>
-                                            ¿No encuentras al profesor que buscas?
-                                        </p>
-                                        <button 
-                                            onClick={handleCreateProfesor}
-                                            className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-2'
-                                        >
-                                            <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 6v6m0 0v6m0-6h6m-6 0H6'></path>
-                                            </svg>
-                                            <span>Agregar nuevo profesor</span>
-                                        </button>
-                                    </div>
-                                </div>
+                          <div className='text-center py-6'>
+                            <div className='bg-gray-800 rounded-lg p-6 border border-gray-600'>
+                              <div className='mb-4'>
+                                <svg className='w-16 h-16 text-gray-500 mx-auto mb-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'></path>
+                                </svg>
+                                <h3 className='text-lg font-medium text-white mb-2'>
+                                  No se encontraron {userFacultad === 'enfermeria' ? 'profesores o tutores' : 'profesores'}
+                                </h3>
+                                <p className='text-gray-400 mb-4'>
+                                  No pudimos encontrar ningún {userFacultad === 'enfermeria' ? 'profesor o tutor' : 'profesor'} {userFacultad === 'derecho' ? 'de Derecho' 
+                                                                                                            : userFacultad === 'comercial' ? 'de Ciencias Empresariales'
+                                                                                                            : userFacultad === 'medicina' ? 'de Medicina'
+                                                                                                            : userFacultad === 'enfermeria' ? 'de Enfermería'
+                                                                                                            : 'de Ingeniería'} con el nombre "<span className='text-white font-medium'>{searchTerm}</span>"
+                                </p>
+                              </div>
+                              
+                              <div className='space-y-3'>
+                                <p className='text-gray-300 text-sm'>
+                                  ¿No encuentras al {userFacultad === 'enfermeria' ? 'profesor o tutor' : 'profesor'} que buscas?
+                                </p>
+
+                                {userFacultad === 'enfermeria' ? (
+                                  <>
+                                    <button onClick={() => handleCreateProfesor("profesor")}>Agregar nuevo profesor</button>
+                                    <button onClick={() => handleCreateProfesor("tutor")}>Agregar nuevo tutor</button>
+
+                                  </>
+                                ) : (
+                                  /* Facultades distintas a enfermería → solo profesor */
+                                  <button 
+                                    onClick={handleCreateProfesor}
+                                    className='w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium flex items-center justify-center space-x-2'
+                                  >
+                                    <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M12 6v6m0 0v6m0-6h6m-6 0H6'></path>
+                                    </svg>
+                                    <span>Agregar nuevo profesor</span>
+                                  </button>
+                                )}
+                              </div>
                             </div>
+                          </div>
                         )}
 
-                        <p className='text-gray-400 mt-5'>Si no encuentras a tu profesor, escribe su nombre completo y haz click en Agregar.</p>
+                        <p className='text-gray-400 mt-5'>
+                          Si no encuentras a tu {userFacultad === 'enfermeria' ? 'profesor o tutor' : 'profesor'}, escribe su nombre completo y haz click en Agregar.
+                        </p>
                         <p className='text-purple-400 mt-5'>Todo es ANONIMO 🕵️</p>
                     </>
                 ) : userFacultad === null ? (
@@ -772,224 +854,177 @@ const SearchForRanking = () => {
         </div>
 
         {/* Popup de Confirmación de Actualización */}
-        {showConfirmPopup && selectedProfesor && existingRatingData && (
+          {showConfirmPopup && selectedProfesor && existingRatingData && (
             <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-                <div className='bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 border border-gray-600'>
-                    {/* Header del popup */}
-                    <div className='text-center mb-6'>
-                        <h3 className='text-xl font-bold text-white mb-2'>
-                            Calificación Existente
-                        </h3>
-                        <p className='text-lg text-white font-medium mb-3'>
-                            {selectedProfesor.nombre_apellido}
-                        </p>
-                        <p className='text-yellow-400 text-sm'>
-                            ⚠️ Ya has calificado a este profesor
-                        </p>
-                    </div>
+              <div className='bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 border border-gray-600'>
+                
+                {/* Header del popup */}
+                <div className='text-center mb-6'>
+                  <h3 className='text-xl font-bold text-white mb-2'>
+                    Calificación Existente
+                  </h3>
+                  <p className='text-lg text-white font-medium mb-3'>
+                    {selectedProfesor.nombre_apellido}
+                  </p>
+                  <p className='text-yellow-400 text-sm'>
+                    ⚠️ Ya has calificado a este {selectedProfesor.tipo === 'tutor' ? 'tutor' : 'profesor'}
+                  </p>
+                </div>
 
-                    {/* Calificaciones actuales */}
-                    <div className='bg-gray-700 rounded-lg p-4 mb-6'>
-                        <h4 className='text-white font-semibold mb-3 text-center'>Tus calificaciones actuales:</h4>
-                        <div className='space-y-2'>
-                            <div className='flex justify-between items-center'>
-                <span className='text-gray-300'>Personalidad:</span>
-                <div className='flex'>
-                  {Array.from({length: existingRatingData.personalidad || 0}, (_, i) => (
-                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
-                  ))}
-                </div>
-                            </div>
-                            <div className='flex justify-between items-center'>
-                <span className='text-gray-300'>Método de Enseñanza:</span>
-                <div className='flex'>
-                  {Array.from({length: existingRatingData.metodo_ensenanza || 0}, (_, i) => (
-                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
-                  ))}
-                </div>
-                            </div>
-                            <div className='flex justify-between items-center'>
-                <span className='text-gray-300'>Responsabilidad:</span>
-                <div className='flex'>
-                  {Array.from({length: existingRatingData.responsabilidad || 0}, (_, i) => (
-                    <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
-                  ))}
-                </div>
-                            </div>
-                        </div>
+                {/* Calificaciones actuales */}
+                <div className='bg-gray-700 rounded-lg p-4 mb-6'>
+                  <h4 className='text-white font-semibold mb-3 text-center'>Tus calificaciones actuales:</h4>
+                  <div className='space-y-2'>
+                    <div className='flex justify-between items-center'>
+                      <span className='text-gray-300'>Personalidad:</span>
+                      <div className='flex'>
+                        {Array.from({length: existingRatingData.personalidad || 0}, (_, i) => (
+                          <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                        ))}
+                      </div>
                     </div>
+                    <div className='flex justify-between items-center'>
+                      <span className='text-gray-300'>Método de Enseñanza:</span>
+                      <div className='flex'>
+                        {Array.from({length: existingRatingData.metodo_ensenanza || 0}, (_, i) => (
+                          <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className='flex justify-between items-center'>
+                      <span className='text-gray-300'>Responsabilidad:</span>
+                      <div className='flex'>
+                        {Array.from({length: existingRatingData.responsabilidad || 0}, (_, i) => (
+                          <span key={i+1} className='text-lg text-yellow-400'>⭐</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                    {/* Pregunta de confirmación */}
-                    <div className='text-center mb-6'>
-                        <p className='text-white text-lg font-medium'>
-                            ¿Deseas cambiar tus calificaciones?
-                        </p>
-                    </div>
-
-                    {/* Botones de acción */}
-                    <div className='flex space-x-3'>
-                        <button
-                            onClick={handleCancelUpdate}
-                            className='flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
-                        >
-                            No, mantener
-                        </button>
-                        <button
-                            onClick={handleConfirmUpdate}
-                            className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
-                        >
-                            Sí, cambiar
-                        </button>
-                    </div>
+                {/* Pregunta de confirmación */}
+                <div className='text-center mb-6'>
+                  <p className='text-white text-lg font-medium'>
+                    ¿Deseas cambiar tus calificaciones de este {selectedProfesor.tipo === 'tutor' ? 'tutor' : 'profesor'}?
+                  </p>
                 </div>
+
+                {/* Botones de acción */}
+                <div className='flex space-x-3'>
+                  <button
+                    onClick={handleCancelUpdate}
+                    className='flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
+                  >
+                    No, mantener
+                  </button>
+                  <button
+                    onClick={handleConfirmUpdate}
+                    className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg transition-colors duration-200 font-medium'
+                  >
+                    Sí, cambiar
+                  </button>
+                </div>
+              </div>
             </div>
-        )}
+          )}
 
         {/* Popup de Rating */}
         {showRatingPopup && selectedProfesor && (
-            <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
-                <div className='bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4'>
-                    {/* Header del popup */}
-                    <div className='text-center mb-6'>
-                        <h3 className='text-xl font-bold text-white mb-2'>
-                            Calificar Profesor
-                        </h3>
-                        <p className='text-lg text-white font-medium'>
-                            {selectedProfesor.nombre_apellido}
-                        </p>
-                        <p className='text-sm text-yellow-400 mt-3'>
-                            ⚠️ Es obligatorio agregar rating en los 3 parámetros
-                        </p>
-                    </div>
+          <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4'>
+            <div className='bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4'>
+              
+              {/* Header del popup */}
+              <div className='text-center mb-6'>
+                <h3 className='text-xl font-bold text-white mb-2'>
+                  Calificar {selectedProfesor.tipo === 'tutor' ? 'Tutor' : 'Profesor'}
+                </h3>
+                <p className='text-lg text-white font-medium'>
+                  {selectedProfesor.nombre_apellido}
+                </p>
+                <p className='text-sm text-yellow-400 mt-3'>
+                  ⚠️ Es obligatorio agregar rating en los 3 parámetros
+                </p>
+              </div>
 
-                    {/* Indicador de progreso */}
-                    <div className='flex justify-center mb-6'>
-                        <div className='flex space-x-2'>
-                            {[1, 2, 3].map((step) => (
-                                <div 
-                                    key={step}
-                                    className={`w-3 h-3 rounded-full ${
-                                        step <= currentRatingStep ? 'bg-blue-500' : 'bg-gray-600'
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Título del parámetro actual */}
-                    <div className='text-center mb-6'>
-                        <h4 className='text-lg font-semibold text-white mb-2'>
-                            {getCurrentRatingTitle()}
-                        </h4>
-                        <p className='text-sm text-gray-400'>
-                            Paso {currentRatingStep} de 3
-                        </p>
-                    </div>
-
-                    {/* Estrellas de rating */}
-                    <div className='flex justify-center mb-8'>
-                        <div className="rating">
-                            <input 
-                                type="radio" 
-                                id={`star5-${currentRatingStep}`} 
-                                name={`rate-${currentRatingStep}`} 
-                                value="5" 
-                                checked={ratings[getCurrentRatingParam()] === 5}
-                                onChange={handleRadioChange}
-                                className="star5"
-                            />
-                            <label title="Excellent!" htmlFor={`star5-${currentRatingStep}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                                    <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
-                                </svg>
-                            </label>
-                            <input 
-                                value="4" 
-                                name={`rate-${currentRatingStep}`} 
-                                id={`star4-${currentRatingStep}`} 
-                                type="radio" 
-                                checked={ratings[getCurrentRatingParam()] === 4}
-                                onChange={handleRadioChange}
-                                className="star4"
-                            />
-                            <label title="Great!" htmlFor={`star4-${currentRatingStep}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                                    <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
-                                </svg>
-                            </label>
-                            <input 
-                                value="3" 
-                                name={`rate-${currentRatingStep}`} 
-                                id={`star3-${currentRatingStep}`} 
-                                type="radio" 
-                                checked={ratings[getCurrentRatingParam()] === 3}
-                                onChange={handleRadioChange}
-                                className="star3"
-                            />
-                            <label title="Good" htmlFor={`star3-${currentRatingStep}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                                    <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
-                                </svg>
-                            </label>
-                            <input 
-                                value="2" 
-                                name={`rate-${currentRatingStep}`} 
-                                id={`star2-${currentRatingStep}`} 
-                                type="radio" 
-                                checked={ratings[getCurrentRatingParam()] === 2}
-                                onChange={handleRadioChange}
-                                className="star2"
-                            />
-                            <label title="Okay" htmlFor={`star2-${currentRatingStep}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                                    <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
-                                </svg>
-                            </label>
-                            <input 
-                                value="1" 
-                                name={`rate-${currentRatingStep}`} 
-                                id={`star1-${currentRatingStep}`} 
-                                type="radio" 
-                                checked={ratings[getCurrentRatingParam()] === 1}
-                                onChange={handleRadioChange}
-                                className="star1"
-                            />
-                            <label title="Bad" htmlFor={`star1-${currentRatingStep}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
-                                    <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
-                                </svg>
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Rating seleccionado */}
-                    <div className='text-center mb-6'>
-                        <p className='text-white'>
-                            Rating: {ratings[getCurrentRatingParam()]} / 5
-                        </p>
-                    </div>
-
-                    {/* Botones de acción */}
-                    <div className='flex space-x-3'>
-                        <button
-                            onClick={closeRatingPopup}
-                            className='flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors duration-200'
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleNextStep}
-                            className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200'
-                        >
-                            {currentRatingStep === 3 
-                                ? (isUpdatingRating ? 'Actualizar Rating' : 'Enviar Rating')
-                                : 'Siguiente'
-                            }
-                        </button>
-                    </div>
+              {/* Indicador de progreso */}
+              <div className='flex justify-center mb-6'>
+                <div className='flex space-x-2'>
+                  {[1, 2, 3].map((step) => (
+                    <div 
+                      key={step}
+                      className={`w-3 h-3 rounded-full ${
+                        step <= currentRatingStep ? 'bg-blue-500' : 'bg-gray-600'
+                      }`}
+                    />
+                  ))}
                 </div>
+              </div>
+
+              {/* Título del parámetro actual */}
+              <div className='text-center mb-6'>
+                <h4 className='text-lg font-semibold text-white mb-2'>
+                  {getCurrentRatingTitle()}
+                </h4>
+                <p className='text-sm text-gray-400'>
+                  Paso {currentRatingStep} de 3
+                </p>
+              </div>
+
+              {/* Estrellas de rating */}
+              <div className='flex justify-center mb-8'>
+                <div className="rating">
+                  {[5,4,3,2,1].map((value) => (
+                    <React.Fragment key={value}>
+                      <input 
+                        type="radio" 
+                        id={`star${value}-${currentRatingStep}`} 
+                        name={`rate-${currentRatingStep}`} 
+                        value={value} 
+                        checked={ratings[getCurrentRatingParam()] === value}
+                        onChange={handleRadioChange}
+                      />
+                      <label htmlFor={`star${value}-${currentRatingStep}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 576 512">
+                          <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"/>
+                        </svg>
+                      </label>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rating seleccionado */}
+              <div className='text-center mb-6'>
+                <p className='text-white'>
+                  Rating: {ratings[getCurrentRatingParam()]} / 5
+                </p>
+              </div>
+
+              {/* Botones de acción */}
+              <div className='flex space-x-3'>
+                <button
+                  onClick={closeRatingPopup}
+                  className='flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors duration-200'
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleNextStep}
+                  className='flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors duration-200'
+                >
+                  {currentRatingStep === 3 
+                    ? (isUpdatingRating 
+                        ? `Actualizar Rating` 
+                        : `Enviar Rating`)
+                    : 'Siguiente'
+                  }
+                </button>
+              </div>
+
             </div>
+          </div>
         )}
+
 
         {/* Popup de Mensaje Personalizado */}
         {showMessagePopup && (
